@@ -49,11 +49,26 @@ async function insertCandidate(
     return 'duplicate';
 
   const existing = await env.DB.prepare(
-    'SELECT 1 FROM articles WHERE canonical_url = ?1 OR content_hash = ?2 LIMIT 1',
+    'SELECT id FROM articles WHERE canonical_url = ?1 OR content_hash = ?2 LIMIT 1',
   )
     .bind(record.canonicalUrl, fingerprint)
-    .first();
+    .first<{ id: string }>();
   if (existing) {
+    // Preserve provenance even when the article row is an exact duplicate. A
+    // source URL is never discarded merely because its content was syndicated.
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO article_sources
+        (article_id, source_id, source_url, source_article_id, fetched_at)
+       VALUES (?1, ?2, ?3, ?4, ?5)`,
+    )
+      .bind(
+        existing.id,
+        source.id,
+        record.canonicalUrl,
+        fingerprint,
+        record.fetchedAt,
+      )
+      .run();
     seen.add(record.canonicalUrl).add(fingerprint);
     return 'duplicate';
   }
