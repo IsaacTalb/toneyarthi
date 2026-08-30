@@ -1,0 +1,20 @@
+[
+  { "code": "missing-source-identity", "patch": { "sourceId": "" } },
+  { "code": "missing-source-url", "patch": { "sourceUrl": "" } },
+  { "code": "missing-title", "patch": { "title": "  " } },
+  {
+    "code": "empty-content",
+    "patch": { "content": "<script>x()</script>", "summary": "" }
+  },
+  {
+    "code": "malformed-url",
+    "patch": { "canonicalUrl": "mailto:test@example.com" }
+  },
+  {
+    "code": "invalid-publication-date",
+    "patch": { "publishedAt": "not-a-date" }
+  },
+  { "code": "navigation-page", "patch": { "title": "Latest News" } },
+  { "code": "document-too-large", "options": { "rawDocumentBytes": 1000001 } },
+  { "code": "duplicate", "duplicate": true }
+]

@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@toneyarthi/news-sources": "workspace:*",
+    "@toneyarthi/shared": "workspace:*",
     "@toneyarthi/types": "workspace:*"
   },
   "scripts": {
