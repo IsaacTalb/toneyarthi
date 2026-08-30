@@ -1,7 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "lib": ["ES2022"],
+    "paths": {
+      "@toneyarthi/types/content": ["../../packages/types/src/content.ts"]
+    },
     "types": ["@cloudflare/workers-types"]
   },
   "include": ["src/**/*.ts"]
