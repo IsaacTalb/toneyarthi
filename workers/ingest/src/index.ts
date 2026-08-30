@@ -1,18 +1,8 @@
 import { getNewsSourceAdapter } from '@toneyarthi/news-sources';
+import { validateAndNormalizeArticle } from '@toneyarthi/shared';
 import type { QueueJobPayload, RawNewsArticle } from '@toneyarthi/types';
 
 const service = 'ingest';
-const TRACKING_PARAMETERS = new Set([
-  'fbclid',
-  'gclid',
-  'mc_cid',
-  'mc_eid',
-  'utm_campaign',
-  'utm_content',
-  'utm_medium',
-  'utm_source',
-  'utm_term',
-]);
 
 interface Env {
   DB: D1Database;
@@ -46,72 +36,15 @@ export interface IngestSummary {
   sources: SourceSummary[];
 }
 
-export function canonicalizeUrl(value: string): string {
-  const url = new URL(value);
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new TypeError('Article URL must use HTTP or HTTPS');
-  }
-  url.hash = '';
-  url.hostname = url.hostname.toLowerCase();
-  for (const name of [...url.searchParams.keys()]) {
-    if (TRACKING_PARAMETERS.has(name.toLowerCase()))
-      url.searchParams.delete(name);
-  }
-  url.searchParams.sort();
-  if (url.pathname !== '/') url.pathname = url.pathname.replace(/\/+$/, '');
-  return url.toString();
-}
-
-async function sha256(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function normalizeRecord(record: RawNewsArticle): RawNewsArticle | undefined {
-  const title = record.title?.trim();
-  const language = record.language?.trim();
-  if (
-    !title ||
-    !language ||
-    !record.fetchedAt ||
-    Number.isNaN(Date.parse(record.fetchedAt))
-  ) {
-    return undefined;
-  }
-  if (record.publishedAt && Number.isNaN(Date.parse(record.publishedAt)))
-    return undefined;
-  try {
-    return {
-      ...record,
-      title,
-      language,
-      canonicalUrl: canonicalizeUrl(record.canonicalUrl),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
 async function insertCandidate(
   env: Env,
   source: SourceRow,
   record: RawNewsArticle,
+  fingerprint: string,
   seen: Set<string>,
 ): Promise<'inserted' | 'duplicate'> {
   // This fingerprint catches syndicated content whose canonical URLs differ. URL is
   // separately unique in D1 and in the in-memory set below.
-  const fingerprint = await sha256(
-    [
-      record.title.toLocaleLowerCase(),
-      record.publishedAt ?? '',
-      record.content ?? record.summary ?? '',
-    ]
-      .map((part) => part.trim().replace(/\s+/g, ' '))
-      .join('\n'),
-  );
   if (seen.has(record.canonicalUrl) || seen.has(fingerprint))
     return 'duplicate';
 
@@ -205,13 +138,27 @@ async function processSource(
     summary.fetched = records.length;
     const seen = new Set<string>();
     for (const candidate of records) {
-      const record = normalizeRecord(candidate);
-      if (!record) {
-        summary.invalid++;
+      const validation = await validateAndNormalizeArticle(candidate, {
+        seenUrls: seen,
+        seenHashes: seen,
+      });
+      if (!validation.accepted) {
+        if (validation.code === 'duplicate') summary.duplicates++;
+        else summary.invalid++;
+        // Keep persisted/logged diagnostics useful and bounded without retaining raw input.
+        if (summary.errors.length < 100)
+          summary.errors.push(`${validation.code}: ${validation.message}`);
         continue;
       }
+      const record = validation.article;
       try {
-        const result = await insertCandidate(env, source, record, seen);
+        const result = await insertCandidate(
+          env,
+          source,
+          record,
+          validation.contentHash,
+          seen,
+        );
         if (result === 'duplicate') summary.duplicates++;
         else {
           summary.accepted++;

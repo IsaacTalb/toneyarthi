@@ -4,6 +4,7 @@
     "allowImportingTsExtensions": true,
     "lib": ["ES2022"],
     "paths": {
+      "@toneyarthi/shared": ["../../packages/shared/src/index.ts"],
       "@toneyarthi/types/content": ["../../packages/types/src/content.ts"]
     },
     "types": ["@cloudflare/workers-types"]

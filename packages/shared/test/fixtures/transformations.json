@@ -1,0 +1,33 @@
+[
+  {
+    "name": "html and chrome",
+    "operation": "html",
+    "input": "<header>Menu</header><article><h1>Hello &amp; welcome</h1><p> First  story. </p></article><footer>Privacy</footer>",
+    "expected": "Hello & welcome\n\nFirst story."
+  },
+  {
+    "name": "whitespace",
+    "operation": "whitespace",
+    "input": "  one\t two\r\n\r\n\r\n three  ",
+    "expected": "one two\n\nthree"
+  },
+  {
+    "name": "title",
+    "operation": "title",
+    "input": " <b>A  headline</b> — Example News ",
+    "sourceName": "Example News",
+    "expected": "A headline"
+  },
+  {
+    "name": "url",
+    "operation": "url",
+    "input": "HTTPS://Example.COM:443/a//story/?utm_source=x&b=2&a=1#top",
+    "expected": "https://example.com/a/story?a=1&b=2"
+  },
+  {
+    "name": "date",
+    "operation": "date",
+    "input": "Sun, 30 Aug 2026 08:00:00 GMT",
+    "expected": "2026-08-30T08:00:00.000Z"
+  }
+]
