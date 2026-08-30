@@ -11,9 +11,12 @@ export interface NewsSource {
 /** The unmodified article fields supplied by a news source. */
 export interface RawNewsArticle {
   sourceId: NewsSource['id'];
+  sourceName: string;
   sourceUrl: string;
+  canonicalUrl: string;
   title: string;
-  content: string;
+  language: string;
+  content?: string;
   summary?: string;
   author?: string;
   imageUrl?: string;
