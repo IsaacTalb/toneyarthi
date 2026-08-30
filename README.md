@@ -49,6 +49,9 @@ pnpm --filter @toneyarthi/mobile typecheck
 The intended asynchronous processing flow and service boundaries are described
 in [`docs/architecture.md`](docs/architecture.md).
 
+R2 media setup and the shared backend helpers are documented in
+[`packages/media/README.md`](packages/media/README.md).
+
 ## Cloudflare D1
 
 Each Worker includes an example `DB` binding that points at the same placeholder

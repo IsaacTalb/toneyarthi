@@ -8,3 +8,10 @@ database_name = "tone-yar-thi"
 database_id = "00000000-0000-0000-0000-000000000000"
 preview_database_id = "11111111-1111-1111-1111-111111111111"
 migrations_dir = "../../database/migrations"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "tone-yar-thi-media"
+
+[vars]
+MEDIA_PUBLIC_BASE_URL = "https://pub-account-specific-id.r2.dev"
