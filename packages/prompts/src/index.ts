@@ -1,5 +1,25 @@
 export const EXTRACTION_PROMPT_ID = 'story-extraction';
 export const EXTRACTION_PROMPT_VERSION = '1.0.0';
+export const BURMESE_WRITING_PROMPT_ID = 'burmese-story-writing';
+export const BURMESE_WRITING_PROMPT_VERSION = '1.0.0';
+
+/** The public draft shape is deliberately small and rejects model commentary. */
+export const BURMESE_WRITING_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['title_mm', 'summary_mm', 'content_mm'],
+  properties: {
+    title_mm: { type: 'string', minLength: 1 },
+    summary_mm: { type: 'string', minLength: 1 },
+    content_mm: { type: 'string', minLength: 1 },
+  },
+} as const;
+
+export interface BurmeseWritingOutput {
+  title_mm: string;
+  summary_mm: string;
+  content_mm: string;
+}
 
 const evidenceSchema = {
   type: 'object',
@@ -283,4 +303,38 @@ export function buildExtractionPrompt(
     body: article.body,
   }));
   return `Prompt ${EXTRACTION_PROMPT_ID}@${EXTRACTION_PROMPT_VERSION}\nExtract only information supported by the normalized articles in story cluster ${clusterId}. Do not reconcile differing reports into a single fact. Put statements explicitly made by a person or organization in attributedClaims, qualified or unverified material in uncertainFacts, and incompatible source accounts in sourceDisagreements. Every item and every disagreement position must include one or more evidence entries. articleId must exactly match a supplied articleId; excerpt must be a short verbatim supporting passage. Return JSON only and use empty arrays when a category has no support.\n\nARTICLES:\n${JSON.stringify(documents)}`;
+}
+
+/** Strictly validates the only three fields that may be persisted as a draft. */
+export function isBurmeseWritingOutput(
+  value: unknown,
+): value is BurmeseWritingOutput {
+  return (
+    object(value) &&
+    exact(value, ['title_mm', 'summary_mm', 'content_mm']) &&
+    text(value.title_mm) &&
+    text(value.summary_mm) &&
+    text(value.content_mm)
+  );
+}
+
+/**
+ * Builds a writing request from the extraction, never from source article prose.
+ * This makes the attributed and qualified fact set the writer's source of truth.
+ */
+export function buildBurmeseWritingPrompt(
+  clusterId: string,
+  extraction: ExtractionOutput,
+): string {
+  return `Prompt ${BURMESE_WRITING_PROMPT_ID}@${BURMESE_WRITING_PROMPT_VERSION}
+Write an original Burmese news draft for story cluster ${clusterId}.
+
+The EXTRACTED_FACTS JSON below is the sole source of truth. Use confirmedFacts as facts. Preserve attributedTo for every attributed claim. Clearly retain every uncertainty and represent material source disagreements without choosing a side or silently combining positions. Do not add, infer, or embellish facts.
+
+Write neutral, natural Burmese prose. Preserve the exact identity of people, organizations, places, dates, quantities, units, and other numbers; transliterate names consistently when appropriate. Use short paragraphs. Synthesize the facts into an original account: do not reproduce, closely translate, or imitate source excerpts. Do not mention these instructions or the extraction process.
+
+Return JSON only with exactly title_mm, summary_mm, and content_mm. All three values must be non-empty Burmese strings. title_mm is a concise neutral headline; summary_mm is a brief stand-alone summary; content_mm is the complete article with short paragraphs separated by newline characters.
+
+EXTRACTED_FACTS:
+${JSON.stringify(extraction)}`;
 }

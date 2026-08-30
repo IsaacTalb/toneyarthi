@@ -13,6 +13,10 @@ dead_letter_queue = "news-processing-dlq"
 binding = "TTS_QUEUE"
 queue = "tts-processing"
 
+[[queues.producers]]
+binding = "PIPELINE_QUEUE"
+queue = "news-processing"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "tone-yar-thi"

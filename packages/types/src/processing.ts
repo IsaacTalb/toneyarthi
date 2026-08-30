@@ -41,6 +41,25 @@ export const QUEUE_JOB_TYPES = [
 export type QueueJobType = (typeof QUEUE_JOB_TYPES)[number];
 export type QueueJobPayload = QueueJobPayloadV1;
 
+export const STORY_PIPELINE_STATES = [
+  'EXTRACTING',
+  'WRITING',
+  'READY_FOR_REVIEW',
+  'PUBLISHED',
+] as const;
+export type StoryPipelineState = (typeof STORY_PIPELINE_STATES)[number];
+
+/** Legal automatic transitions stop at editorial review; publishing is manual. */
+export function nextAutomaticStoryState(
+  state: StoryPipelineState,
+  completedStage: 'extract' | 'write',
+): StoryPipelineState | null {
+  if (state === 'EXTRACTING' && completedStage === 'extract') return 'WRITING';
+  if (state === 'WRITING' && completedStage === 'write')
+    return 'READY_FOR_REVIEW';
+  return null;
+}
+
 const JOB_TYPES = new Set<string>(QUEUE_JOB_TYPES);
 
 /** Validate untrusted Queue bodies without accepting extra or future versions. */
