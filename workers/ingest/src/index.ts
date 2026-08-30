@@ -1,5 +1,5 @@
 import { getNewsSourceAdapter } from '@toneyarthi/news-sources';
-import type { RawNewsArticle } from '@toneyarthi/types';
+import type { QueueJobPayload, RawNewsArticle } from '@toneyarthi/types';
 
 const service = 'ingest';
 const TRACKING_PARAMETERS = new Set([
@@ -16,7 +16,7 @@ const TRACKING_PARAMETERS = new Set([
 
 interface Env {
   DB: D1Database;
-  ARTICLE_QUEUE: Queue<ArticleQueueMessage>;
+  NEWS_QUEUE: Queue<QueueJobPayload>;
   ENVIRONMENT?: string;
   INGEST_TRIGGER_SECRET?: string;
 }
@@ -25,11 +25,6 @@ interface SourceRow {
   id: string;
   slug: string;
   priority: number;
-}
-
-interface ArticleQueueMessage {
-  jobId: string;
-  articleId: string;
 }
 
 export interface SourceSummary {
@@ -183,7 +178,7 @@ async function insertCandidate(
   }
 
   seen.add(record.canonicalUrl).add(fingerprint);
-  await env.ARTICLE_QUEUE.send({ jobId, articleId });
+  await env.NEWS_QUEUE.send({ version: 1, jobId, articleId, type: 'ingest' });
   return 'inserted';
 }
 

@@ -2,6 +2,17 @@ name = "toneyarthi-ai-processor"
 main = "src/index.ts"
 compatibility_date = "2025-08-30"
 
+[[queues.consumers]]
+queue = "news-processing"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 2
+dead_letter_queue = "news-processing-dlq"
+
+[[queues.producers]]
+binding = "TTS_QUEUE"
+queue = "tts-processing"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "tone-yar-thi"

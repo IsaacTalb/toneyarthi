@@ -2,6 +2,13 @@ name = "toneyarthi-audio-processor"
 main = "src/index.ts"
 compatibility_date = "2025-08-30"
 
+[[queues.consumers]]
+queue = "tts-processing"
+max_batch_size = 5
+max_batch_timeout = 5
+max_retries = 2
+dead_letter_queue = "tts-processing-dlq"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "tone-yar-thi"
