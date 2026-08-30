@@ -1,5 +1,7 @@
 import type { RawNewsArticle } from '@toneyarthi/types';
 
+export * from './deduplication.ts';
+
 export const CONTENT_LIMITS = Object.freeze({
   rawDocumentBytes: 1_000_000,
   titleCharacters: 500,
