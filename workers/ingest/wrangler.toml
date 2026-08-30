@@ -1,0 +1,3 @@
+name = "toneyarthi-ingest"
+main = "src/index.ts"
+compatibility_date = "2025-08-30"
