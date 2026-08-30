@@ -1,0 +1,6 @@
+<?xml version="1.0"?><rss version="2.0"><channel><title>BBC World</title>
+<item><title><![CDATA[World headline]]></title><description><![CDATA[A concise summary &amp; context.]]></description><link>https://www.bbc.com/news/world-123</link><guid>world-123</guid><pubDate>Sun, 30 Aug 2026 08:00:00 GMT</pubDate></item>
+<item><title>Optional fields absent</title><link>https://www.bbc.com/news/world-456</link></item>
+<item><title>Missing URL</title><description>Malformed</description></item>
+<item><link>https://www.bbc.com/news/no-title</link></item>
+</channel></rss>

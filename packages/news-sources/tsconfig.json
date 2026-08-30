@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "paths": {
+      "@toneyarthi/types/content": ["../types/src/content.ts"]
+    },
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*.ts"]
+}
