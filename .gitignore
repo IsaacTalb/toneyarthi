@@ -1,0 +1,28 @@
+node_modules/
+.pnpm-store/
+
+# Build and tool output
+dist/
+coverage/
+.wrangler/
+.expo/
+web-build/
+*.tsbuildinfo
+
+# Local configuration
+.env
+.env.*
+!.env.example
+*.local
+
+# Operating systems and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
