@@ -3,6 +3,8 @@ export const EXTRACTION_PROMPT_VERSION = '1.0.0';
 export const BURMESE_WRITING_PROMPT_ID = 'burmese-story-writing';
 export const BURMESE_WRITING_PROMPT_VERSION = '1.0.0';
 
+export * from './humanization.ts';
+
 /** The public draft shape is deliberately small and rejects model commentary. */
 export const BURMESE_WRITING_SCHEMA = {
   type: 'object',
