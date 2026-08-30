@@ -1,5 +1,10 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet, Text, View } from 'react-native';
+import type { Category } from '@toneyarthi/types';
+
+const categoryAccent = {
+  local: '#31523A',
+} satisfies Partial<Record<Category, string>>;
 
 export default function HomeScreen() {
   return (
@@ -63,7 +68,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 48,
     borderRadius: 28,
-    backgroundColor: '#31523A',
+    backgroundColor: categoryAccent.local,
     padding: 28,
   },
   cardEyebrow: {

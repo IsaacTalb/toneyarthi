@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@toneyarthi/types": "workspace:*",
     "@expo/vector-icons": "^15.0.2",
     "expo": "~54.0.20",
     "expo-constants": "~18.0.10",

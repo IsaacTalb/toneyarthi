@@ -1,3 +1,4 @@
 # Shared
 
-Cross-runtime utilities and contracts will live here once multiple packages need them.
+Cross-runtime utilities live here. Shared data contracts are exported from the
+dedicated `@toneyarthi/types` package.
