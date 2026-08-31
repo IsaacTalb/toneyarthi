@@ -24,6 +24,7 @@ import {
 import { useTheme } from '../../src/theme';
 import { usePlayback } from '../../src/playback';
 import { useDownloads } from '../../src/downloads';
+import { useBookmarks } from '../../src/bookmarks';
 
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat('my-MM', {
@@ -114,6 +115,7 @@ export default function ArticleScreen() {
   const router = useRouter();
   const playback = usePlayback();
   const downloads = useDownloads();
+  const bookmarks = useBookmarks();
   const [isDownloading, setIsDownloading] = useState(false);
   const { slug = '' } = useLocalSearchParams<{ slug?: string }>();
   const articleSlug = Array.isArray(slug) ? slug[0] : slug;
@@ -126,9 +128,7 @@ export default function ArticleScreen() {
     ...queries.categoryFeed(categorySlug, { limit: 4 }),
     enabled: Boolean(categorySlug),
   });
-  // This state is the UI integration point for the local saved-article store.
-  // Replace the setter with the durable store adapter when offline storage lands.
-  const [isSaved, setIsSaved] = useState(false);
+  const isSaved = bookmarks.contains(article.data?.id ?? articleSlug);
 
   const paragraphs = useMemo(
     () =>
@@ -219,6 +219,21 @@ export default function ArticleScreen() {
     } finally {
       setIsDownloading(false);
     }
+  };
+  const toggleBookmark = async () => {
+    if (isSaved) {
+      await bookmarks.remove(data.id);
+      return;
+    }
+    await bookmarks.save({
+      id: data.id,
+      slug: articleSlug || data.id,
+      title,
+      summary,
+      category,
+      publishedAt: data.publishedAt,
+      imageUrl: data.imageUrl,
+    });
   };
   const openSource = async (url: string) => {
     const safeUrl = validatedHttpsUrl(url);
@@ -339,7 +354,7 @@ export default function ArticleScreen() {
                 icon={isSaved ? 'bookmark' : 'bookmark-outline'}
                 label={isSaved ? 'သိမ်းပြီး' : 'သိမ်းမည်'}
                 active={isSaved}
-                onPress={() => setIsSaved((value) => !value)}
+                onPress={() => void toggleBookmark()}
               />
               <Action
                 icon="share-social-outline"
