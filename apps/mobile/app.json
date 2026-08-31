@@ -7,16 +7,32 @@
     "scheme": "toneyarthi",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.toneyarthi.mobile"
+      "bundleIdentifier": "com.toneyarthi.mobile",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
     },
     "android": {
-      "package": "com.toneyarthi.mobile"
+      "package": "com.toneyarthi.mobile",
+      "permissions": [
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.WAKE_LOCK"
+      ]
     }
   }
 }

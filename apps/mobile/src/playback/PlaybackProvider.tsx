@@ -6,15 +6,24 @@ import {
   useSyncExternalStore,
   type PropsWithChildren,
 } from 'react';
+import { AppState } from 'react-native';
 import { PlaybackController } from './controller';
 import { ExpoAudioDriver } from './expoAudioDriver';
+import { playbackStore } from './playbackStore';
 
 const PlaybackContext = createContext<PlaybackController | null>(null);
 
 export function PlaybackProvider({ children }: PropsWithChildren) {
   const [controller] = useState(
-    () => new PlaybackController(new ExpoAudioDriver()),
+    () => new PlaybackController(new ExpoAudioDriver(), playbackStore),
   );
+  useEffect(() => {
+    void controller.restore();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') void controller.persist();
+    });
+    return () => subscription.remove();
+  }, [controller]);
   useEffect(
     () => () => {
       void controller.dispose();

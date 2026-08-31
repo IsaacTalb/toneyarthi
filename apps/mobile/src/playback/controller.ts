@@ -6,6 +6,7 @@ import {
   type PlaybackItem,
   type PlaybackRate,
   type PlaybackState,
+  type PlaybackStore,
 } from './types.ts';
 
 export const clampPosition = (position: number, duration: number) =>
@@ -21,9 +22,12 @@ export class PlaybackController {
   private generation = 0;
   private disposed = false;
   private unsubscribe: () => void;
+  private readonly store?: PlaybackStore;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(driver: AudioDriver) {
+  constructor(driver: AudioDriver, store?: PlaybackStore) {
     this.driver = driver;
+    this.store = store;
     this.unsubscribe = driver.subscribe((progress) =>
       this.onProgress(progress),
     );
@@ -39,6 +43,32 @@ export class PlaybackController {
     if (this.disposed) return;
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((listener) => listener());
+    this.scheduleSave();
+  }
+
+  private scheduleSave() {
+    if (!this.store || this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      void this.store?.save(this.state);
+    }, 500);
+  }
+
+  async restore() {
+    const saved = await this.store?.load();
+    if (!saved?.item || this.disposed || this.state.item) return;
+    const position = saved.position;
+    this.update({ rate: saved.rate });
+    await this.load(saved.item);
+    await this.seek(position);
+  }
+
+  async persist() {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    await this.store?.save(this.state);
   }
 
   async load(item: PlaybackItem) {
@@ -134,6 +164,7 @@ export class PlaybackController {
     this.generation++;
     this.unsubscribe();
     this.listeners.clear();
+    await this.persist();
     await this.driver.dispose();
   }
 }

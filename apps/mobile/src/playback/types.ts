@@ -39,6 +39,11 @@ export interface AudioDriver {
   dispose(): Promise<void> | void;
 }
 
+export interface PlaybackStore {
+  load(): Promise<PlaybackState | null>;
+  save(state: PlaybackState): Promise<void>;
+}
+
 export const initialPlaybackState: PlaybackState = {
   phase: 'idle',
   item: null,
