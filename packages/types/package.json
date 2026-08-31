@@ -17,6 +17,10 @@
       "types": "./src/content.ts",
       "default": "./src/content.ts"
     },
+    "./image": {
+      "types": "./src/image.ts",
+      "default": "./src/image.ts"
+    },
     "./processing": {
       "types": "./src/processing.ts",
       "default": "./src/processing.ts"

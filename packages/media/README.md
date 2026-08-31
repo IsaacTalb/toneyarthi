@@ -4,8 +4,35 @@
 project's Cloudflare R2 bucket. It builds and validates keys in the `audio/`,
 `images/`, and `thumbnails/` namespaces, uploads objects with HTTP/custom
 metadata, checks existence, deletes only validated media keys, and constructs
-public URLs. It intentionally does not implement downloads, streaming, or
+public URLs. The image pipeline additionally enforces HTTPS and an exact-host
+allowlist on every redirect, bounded downloads, MIME/magic-byte agreement, and
+optional Cloudflare image transforms. It intentionally does not implement
 text-to-speech.
+
+## Authorized images
+
+Call `fetchApprovedImage` only after the editorial/source registry has supplied
+an `ApprovedImageSource` policy. Redirects are manual so that HTTPS and the
+allowlist are checked again at every hop. The response is streamed through a
+hard byte limit and accepted only when its declared JPEG, PNG, WebP, or GIF MIME
+type agrees with its signature. SVG is deliberately not accepted from remote
+sources. A configured `cloudflareTransform` is passed through the Workers
+`cf.image` request option and requests metadata-stripped WebP output.
+
+`storeImageVariants` writes immutable article and thumbnail objects under the
+normalized `images/<article>.<extension>` and
+`thumbnails/<article>.<extension>` keys and puts serialized provenance on both
+objects. `persistImageProvenance` upserts the same provenance and both keys into
+D1. Apply migration `0020_add_article_images.sql` before using it.
+
+Permitted publisher media, licensed provider assets, editorial uploads, and
+project-owned category fallbacks have distinct discriminated provenance types
+in `@toneyarthi/types`. If acquisition or processing fails, use
+`withCategoryFallback` with `categoryFallbackArtwork`; the compact,
+deterministic SVG has article and thumbnail sizes and requires no network. The
+image path must remain optional to the publication state machine: log the
+original failure, use fallback art where storage is available, and continue
+publication even if fallback storage also has an infrastructure failure.
 
 ## Create and bind the bucket
 
