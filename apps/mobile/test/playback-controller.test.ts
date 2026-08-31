@@ -92,6 +92,15 @@ test('transitions between ready, playing, paused, and unavailable', async () => 
   await loading;
   await controller.play();
   assert.equal(controller.getSnapshot().phase, 'playing');
+  driver.listener?.({
+    generation: driver.loads[0]!.generation,
+    position: 1,
+    duration: 60,
+    playing: true,
+    available: true,
+    buffering: true,
+  });
+  assert.equal(controller.getSnapshot().phase, 'buffering');
   await controller.pause();
   assert.equal(controller.getSnapshot().phase, 'ready');
   driver.listener?.({

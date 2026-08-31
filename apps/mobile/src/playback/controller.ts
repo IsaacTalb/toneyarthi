@@ -98,7 +98,10 @@ export class PlaybackController {
   }
 
   async play() {
-    if (!this.state.item || !['ready', 'playing'].includes(this.state.phase))
+    if (
+      !this.state.item ||
+      !['ready', 'playing', 'buffering'].includes(this.state.phase)
+    )
       return;
     const generation = this.generation;
     try {
@@ -114,7 +117,7 @@ export class PlaybackController {
   }
 
   async pause() {
-    if (this.state.phase !== 'playing') return;
+    if (!['playing', 'buffering'].includes(this.state.phase)) return;
     const generation = this.generation;
     await this.driver.pause();
     if (generation !== this.generation) return;
@@ -153,7 +156,13 @@ export class PlaybackController {
     this.update({
       duration,
       position: clampPosition(progress.position, duration),
-      phase: progress.ended ? 'ready' : progress.playing ? 'playing' : 'ready',
+      phase: progress.ended
+        ? 'ready'
+        : progress.buffering
+          ? 'buffering'
+          : progress.playing
+            ? 'playing'
+            : 'ready',
       error: null,
     });
   }

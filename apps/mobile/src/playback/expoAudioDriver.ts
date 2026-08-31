@@ -42,6 +42,7 @@ export class ExpoAudioDriver implements AudioDriver {
           duration: status.duration,
           playing: status.playing,
           available: status.playbackState !== 'error',
+          buffering: status.playbackState === 'loading',
           ended: status.didJustFinish,
         });
       },
