@@ -1,3 +1,5 @@
+import { sourceDefinitionRegistry } from '../../../packages/news-sources/src/definitions.ts';
+
 const ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{8,128}$/;
 
@@ -12,6 +14,187 @@ export type EditorialAction =
 interface AdminEnv {
   DB: D1Database;
   ADMIN_API_TOKEN?: string;
+}
+
+interface SourceRow {
+  id: string;
+  slug: string;
+  name: string;
+  feedUrl: string | null;
+  adapterType: string;
+  isActive: number;
+  priority: number;
+  lastSuccess: string | null;
+  lastError: string | null;
+  articleCount: number;
+}
+
+/** Source administration is deliberately limited to compile-time adapters. */
+export async function handleAdminSources(
+  request: Request,
+  env: AdminEnv,
+  url: URL,
+) {
+  const match = url.pathname.match(/^\/v1\/admin\/sources(?:\/([^/]+))?$/);
+  if (!match) return null;
+  const actor = authenticate(request, env);
+  if (!match[1]) {
+    if (request.method !== 'GET' && request.method !== 'HEAD') return null;
+    const result = await env.DB.prepare(
+      `SELECT s.id,s.slug,s.name,s.feed_url feedUrl,s.adapter_type adapterType,
+       s.is_active isActive,s.priority,s.last_success_at lastSuccess,s.last_error lastError,
+       COUNT(ars.id) articleCount FROM sources s LEFT JOIN article_sources ars ON ars.source_id=s.id
+       GROUP BY s.id ORDER BY s.priority DESC,s.name`,
+    ).all<SourceRow>();
+    return {
+      items: result.results.map((source) => ({
+        ...source,
+        isActive: source.isActive === 1,
+      })),
+    };
+  }
+  if (request.method !== 'PATCH') return null;
+  let slug: string;
+  try {
+    slug = decodeURIComponent(match[1]);
+  } catch {
+    throw new AdminError(400, 'INVALID_SOURCE', 'Invalid source slug');
+  }
+  const definition = sourceDefinitionRegistry.get(slug);
+  if (!definition)
+    throw new AdminError(
+      400,
+      'UNKNOWN_SOURCE',
+      'Source slug is not in the adapter registry',
+    );
+  const body = await sourceBody(request);
+  if (
+    body.adapterType !== undefined &&
+    body.adapterType !== definition.adapterType
+  )
+    throw new AdminError(
+      400,
+      'INVALID_ADAPTER',
+      'Adapter type is not allowed for this source',
+    );
+  if (body.feedUrl !== undefined && body.feedUrl !== definition.feedUrl)
+    throw new AdminError(
+      400,
+      'INVALID_FEED',
+      'Feed URL must match the registered source configuration',
+    );
+  const current = await env.DB.prepare(
+    'SELECT id,slug,feed_url feedUrl,adapter_type adapterType,is_active isActive,priority FROM sources WHERE slug=?1',
+  )
+    .bind(slug)
+    .first<SourceRow>();
+  if (!current)
+    throw new AdminError(404, 'SOURCE_NOT_FOUND', 'Source not found');
+  const next = {
+    isActive: body.isActive ?? current.isActive === 1,
+    priority: body.priority ?? current.priority,
+    feedUrl: body.feedUrl ?? current.feedUrl,
+    adapterType: body.adapterType ?? current.adapterType,
+  };
+  const previous = { ...current, isActive: current.isActive === 1 };
+  const changes = Object.fromEntries(
+    Object.entries(next)
+      .filter(
+        ([key, value]) => value !== previous[key as keyof typeof previous],
+      )
+      .map(([key, value]) => [
+        key,
+        { from: previous[key as keyof typeof previous], to: value },
+      ]),
+  );
+  if (!Object.keys(changes).length)
+    throw new AdminError(409, 'NO_CHANGES', 'No source fields changed');
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(
+      'UPDATE sources SET is_active=?2,priority=?3,feed_url=?4,adapter_type=?5,updated_at=?6 WHERE id=?1',
+    ).bind(
+      current.id,
+      next.isActive ? 1 : 0,
+      next.priority,
+      next.feedUrl,
+      next.adapterType,
+      now,
+    ),
+    env.DB.prepare(
+      'INSERT INTO source_admin_audit (source_id,source_slug,actor,changes,created_at) VALUES (?1,?2,?3,?4,?5)',
+    ).bind(current.id, slug, actor, JSON.stringify(changes), now),
+  ]);
+  return {
+    slug,
+    ...next,
+    changed: Object.keys(changes),
+    actor,
+    updatedAt: now,
+  };
+}
+
+async function sourceBody(request: Request) {
+  if (
+    !request.headers
+      .get('content-type')
+      ?.toLowerCase()
+      .startsWith('application/json')
+  )
+    throw new AdminError(
+      415,
+      'JSON_REQUIRED',
+      'Content-Type must be application/json',
+    );
+  let value: unknown;
+  try {
+    value = await request.json();
+  } catch {
+    throw new AdminError(
+      400,
+      'INVALID_JSON',
+      'Request body must be valid JSON',
+    );
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new AdminError(
+      400,
+      'INVALID_SOURCE',
+      'Request body must be an object',
+    );
+  const body = value as Record<string, unknown>;
+  const allowed = ['isActive', 'priority', 'feedUrl', 'adapterType'];
+  if (
+    !Object.keys(body).length ||
+    Object.keys(body).some((key) => !allowed.includes(key))
+  )
+    throw new AdminError(
+      400,
+      'INVALID_SOURCE',
+      'Source update contains unsupported fields',
+    );
+  if (body.isActive !== undefined && typeof body.isActive !== 'boolean')
+    throw new AdminError(400, 'INVALID_SOURCE', 'isActive must be boolean');
+  if (
+    body.priority !== undefined &&
+    (!Number.isInteger(body.priority) ||
+      (body.priority as number) < 0 ||
+      (body.priority as number) > 1000)
+  )
+    throw new AdminError(
+      400,
+      'INVALID_SOURCE',
+      'priority must be an integer between 0 and 1000',
+    );
+  for (const key of ['feedUrl', 'adapterType'])
+    if (body[key] !== undefined && typeof body[key] !== 'string')
+      throw new AdminError(400, 'INVALID_SOURCE', `${key} must be a string`);
+  return body as {
+    isActive?: boolean;
+    priority?: number;
+    feedUrl?: string;
+    adapterType?: string;
+  };
 }
 
 export class AdminError extends Error {

@@ -1,4 +1,9 @@
-import { AdminError, handleAdminAction, handleAdminReview } from './admin.ts';
+import {
+  AdminError,
+  handleAdminAction,
+  handleAdminReview,
+  handleAdminSources,
+} from './admin.ts';
 import { handlePushTokenRequest, PushTokenError } from './push-tokens.ts';
 
 const service = 'api';
@@ -337,6 +342,9 @@ export async function handleRequest(
       return jsonResponse(request, env, {}, 204, 'no-store');
     }
     if (request.method === 'PATCH') {
+      const sourceData = await handleAdminSources(request, env, url);
+      if (sourceData !== null)
+        return jsonResponse(request, env, sourceData, 200, 'no-store');
       const data = await handleAdminReview(request, env, url);
       if (data === null)
         throw new HttpError(404, 'NOT_FOUND', 'Route not found');
@@ -362,6 +370,9 @@ export async function handleRequest(
     const adminReview = await handleAdminReview(request, env, url);
     if (adminReview !== null)
       return jsonResponse(request, env, adminReview, 200, 'no-store');
+    const adminSources = await handleAdminSources(request, env, url);
+    if (adminSources !== null)
+      return jsonResponse(request, env, adminSources, 200, 'no-store');
     const result = await route(request, env, url);
     return jsonResponse(request, env, result.data, 200, result.cache);
   } catch (error) {

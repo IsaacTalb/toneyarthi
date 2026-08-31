@@ -1,4 +1,5 @@
 export * from './adapter.ts';
+export * from './definitions.ts';
 export * from './adapters.ts';
 export * from './errors.ts';
 export * from './registry.ts';
