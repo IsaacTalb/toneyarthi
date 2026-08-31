@@ -38,9 +38,7 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
 }
 
 export function usePlayback() {
-  const controller = useContext(PlaybackContext);
-  if (!controller)
-    throw new Error('usePlayback must be used inside PlaybackProvider');
+  const controller = usePlaybackController();
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
@@ -56,4 +54,27 @@ export function usePlayback() {
     skipForward: () => controller.skip(15),
     setRate: controller.setRate.bind(controller),
   };
+}
+
+/**
+ * Subscribe to one small, stable slice of playback state. This is preferable
+ * for persistent navigation chrome, where position ticks must not invalidate
+ * the navigation tree.
+ */
+export function usePlaybackSelector<T>(
+  selector: (state: ReturnType<PlaybackController['getSnapshot']>) => T,
+) {
+  const controller = usePlaybackController();
+  return useSyncExternalStore(
+    controller.subscribe,
+    () => selector(controller.getSnapshot()),
+    () => selector(controller.getSnapshot()),
+  );
+}
+
+export function usePlaybackController() {
+  const controller = useContext(PlaybackContext);
+  if (!controller)
+    throw new Error('Playback hooks must be used inside PlaybackProvider');
+  return controller;
 }
