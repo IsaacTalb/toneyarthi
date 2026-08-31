@@ -22,6 +22,7 @@ import {
   Typography,
 } from '../../src/components';
 import { useTheme } from '../../src/theme';
+import { usePlayback } from '../../src/playback';
 
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat('my-MM', {
@@ -110,6 +111,7 @@ function ArticleSkeleton() {
 export default function ArticleScreen() {
   const t = useTheme();
   const router = useRouter();
+  const playback = usePlayback();
   const { slug = '' } = useLocalSearchParams<{ slug?: string }>();
   const articleSlug = Array.isArray(slug) ? slug[0] : slug;
   const article = useQuery({
@@ -181,8 +183,17 @@ export default function ArticleScreen() {
       url: publicUrl,
     }).catch(() => Alert.alert('မျှဝေ၍ မရပါ', 'ခဏအကြာတွင် ထပ်ကြိုးစားပါ။'));
   };
-  const playAudio = () =>
+  const playAudio = () => {
+    if (!data.audioUrl) return;
+    void playback.load({
+      id: data.id,
+      uri: data.audioUrl,
+      title,
+      artist: data.author,
+      artworkUri: data.imageUrl,
+    });
     router.push({ pathname: '/player', params: { articleId: data.id } });
+  };
   const openSource = async (url: string) => {
     const safeUrl = validatedHttpsUrl(url);
     if (!safeUrl || !(await Linking.canOpenURL(safeUrl))) {
