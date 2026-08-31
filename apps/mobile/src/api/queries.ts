@@ -25,6 +25,10 @@ export const queryKeys = {
   audio: (input: PaginationInput = {}) => ['audio', input] as const,
   search: (term: string, input: PaginationInput = {}) =>
     ['search', term.trim(), input] as const,
+  searchInfinite: (term: string, limit: number) =>
+    ['search', term.trim(), 'infinite', { limit }] as const,
+  exploreFeed: (slug: string | undefined, limit: number) =>
+    ['feeds', 'explore', slug ?? 'latest', { limit }] as const,
   playlists: (input: PaginationInput = {}) =>
     ['playlists', 'list', input] as const,
   playlist: (slug: string, input: PaginationInput = {}) =>
@@ -38,6 +42,23 @@ const paged = {
 } as const;
 
 export const queries = {
+  exploreFeed: (slug?: string, limit = 12) =>
+    infiniteQueryOptions({
+      queryKey: queryKeys.exploreFeed(slug, limit),
+      initialPageParam: { page: 1 } as PaginationInput,
+      queryFn: ({ pageParam, signal }) =>
+        slug
+          ? api.categoryFeed(slug, { limit, ...pageParam }, signal)
+          : api.feed({ limit, ...pageParam }, signal),
+      getNextPageParam: (lastPage) => {
+        if (!lastPage.hasMore) return undefined;
+        return lastPage.nextCursor
+          ? { cursor: lastPage.nextCursor }
+          : { page: lastPage.page + 1 };
+      },
+      staleTime: STALE_TIMES.feed,
+      retry: shouldRetry,
+    }),
   homeFeed: (limit = 12) =>
     infiniteQueryOptions({
       queryKey: queryKeys.homeFeed(limit),
@@ -95,6 +116,22 @@ export const queries = {
       enabled: term.trim().length >= 2,
       staleTime: STALE_TIMES.search,
       ...paged,
+    }),
+  searchInfinite: (term: string, limit = 12) =>
+    infiniteQueryOptions({
+      queryKey: queryKeys.searchInfinite(term, limit),
+      initialPageParam: { page: 1 } as PaginationInput,
+      queryFn: ({ pageParam, signal }) =>
+        api.search(term, { limit, ...pageParam }, signal),
+      enabled: term.length >= 2 && term.length <= 100,
+      getNextPageParam: (lastPage) => {
+        if (!lastPage.hasMore) return undefined;
+        return lastPage.nextCursor
+          ? { cursor: lastPage.nextCursor }
+          : { page: lastPage.page + 1 };
+      },
+      staleTime: STALE_TIMES.search,
+      retry: shouldRetry,
     }),
   playlists: (input: PaginationInput = {}) =>
     queryOptions({
