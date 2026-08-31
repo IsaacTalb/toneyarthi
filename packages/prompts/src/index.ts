@@ -5,6 +5,7 @@ export const BURMESE_WRITING_PROMPT_VERSION = '1.0.0';
 
 export * from './humanization.ts';
 export * from './verification.ts';
+export * from './audio-script.ts';
 
 /** The public draft shape is deliberately small and rejects model commentary. */
 export const BURMESE_WRITING_SCHEMA = {
