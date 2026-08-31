@@ -191,6 +191,8 @@ export default function ArticleScreen() {
       title,
       artist: data.author,
       artworkUri: data.imageUrl,
+      category,
+      source: data.sources?.[0]?.name,
     });
     router.push({ pathname: '/player', params: { articleId: data.id } });
   };

@@ -7,9 +7,12 @@ export interface PlaybackItem {
   title: string;
   artist?: string;
   artworkUri?: string;
+  category?: string;
+  source?: string;
 }
 
-export type PlaybackPhase = 'idle' | 'loading' | 'ready' | 'playing' | 'error';
+export type PlaybackPhase =
+  'idle' | 'loading' | 'buffering' | 'ready' | 'playing' | 'error';
 
 export interface PlaybackState {
   phase: PlaybackPhase;
@@ -27,6 +30,7 @@ export interface DriverProgress {
   playing: boolean;
   available: boolean;
   ended?: boolean;
+  buffering?: boolean;
 }
 
 export interface AudioDriver {
