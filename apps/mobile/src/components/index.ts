@@ -7,3 +7,5 @@ export * from './LoadingSkeleton';
 export * from './SectionHeader';
 export * from './States';
 export * from './Typography';
+export * from './PersistentPlayerHost';
+export * from './RoutePlaceholder';
