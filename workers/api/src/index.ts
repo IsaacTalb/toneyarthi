@@ -1,4 +1,4 @@
-import { AdminError, handleAdminAction } from './admin.ts';
+import { AdminError, handleAdminAction, handleAdminReview } from './admin.ts';
 import { handlePushTokenRequest, PushTokenError } from './push-tokens.ts';
 
 const service = 'api';
@@ -336,6 +336,12 @@ export async function handleRequest(
         throw new HttpError(403, 'CORS_ORIGIN_DENIED', 'Origin is not allowed');
       return jsonResponse(request, env, {}, 204, 'no-store');
     }
+    if (request.method === 'PATCH') {
+      const data = await handleAdminReview(request, env, url);
+      if (data === null)
+        throw new HttpError(404, 'NOT_FOUND', 'Route not found');
+      return jsonResponse(request, env, data, 200, 'no-store');
+    }
     if (request.method === 'POST' || request.method === 'DELETE') {
       const pushResult = await handlePushTokenRequest(request, env, url);
       if (pushResult !== null)
@@ -353,6 +359,9 @@ export async function handleRequest(
         'METHOD_NOT_ALLOWED',
         'Only GET and HEAD are supported',
       );
+    const adminReview = await handleAdminReview(request, env, url);
+    if (adminReview !== null)
+      return jsonResponse(request, env, adminReview, 200, 'no-store');
     const result = await route(request, env, url);
     return jsonResponse(request, env, result.data, 200, result.cache);
   } catch (error) {

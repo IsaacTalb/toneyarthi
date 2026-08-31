@@ -22,7 +22,16 @@ export async function adminApi<T>(
     headers,
     cache: 'no-store',
   });
-  if (!response.ok)
-    throw new Error(`Admin API request failed (${response.status})`);
-  return response.json() as Promise<T>;
+  const payload = (await response.json().catch(() => null)) as {
+    success?: boolean;
+    data?: T;
+    error?: { message?: string };
+  } | null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(
+      payload?.error?.message ??
+        `Admin API request failed (${response.status})`,
+    );
+  }
+  return payload.data as T;
 }

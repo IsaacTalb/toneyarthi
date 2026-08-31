@@ -23,5 +23,7 @@ describe('editorial state transitions', () => {
       'TTS_PENDING',
     );
     assert.equal(transitionFor('regenerate_audio', 'PUBLISHED'), undefined);
+    assert.equal(transitionFor('rehumanize', 'READY'), 'WRITING');
+    assert.equal(transitionFor('rehumanize', 'PUBLISHED'), undefined);
   });
 });
