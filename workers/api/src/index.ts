@@ -1,3 +1,5 @@
+import { AdminError, handleAdminAction } from './admin.ts';
+
 const service = 'api';
 const API_PREFIX = '/v1';
 const DEFAULT_LIMIT = 20;
@@ -8,6 +10,7 @@ const ID = /^[a-zA-Z0-9_-]{1,64}$/;
 interface Env {
   DB: D1Database;
   ALLOWED_ORIGINS?: string;
+  ADMIN_API_TOKEN?: string;
 }
 
 type Json = Record<string, unknown> | unknown[];
@@ -329,6 +332,12 @@ export async function handleRequest(
         throw new HttpError(403, 'CORS_ORIGIN_DENIED', 'Origin is not allowed');
       return jsonResponse(request, env, {}, 204, 'no-store');
     }
+    if (request.method === 'POST') {
+      const data = await handleAdminAction(request, env, url);
+      if (data === null)
+        throw new HttpError(404, 'NOT_FOUND', 'Route not found');
+      return jsonResponse(request, env, data, 200, 'no-store');
+    }
     if (!['GET', 'HEAD'].includes(request.method))
       throw new HttpError(
         405,
@@ -339,7 +348,7 @@ export async function handleRequest(
     return jsonResponse(request, env, result.data, 200, result.cache);
   } catch (error) {
     const safe =
-      error instanceof HttpError
+      error instanceof HttpError || error instanceof AdminError
         ? error
         : new HttpError(500, 'INTERNAL_ERROR', 'An internal error occurred');
     return jsonResponse(

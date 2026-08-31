@@ -17,3 +17,6 @@ bucket_name = "tone-yar-thi-media"
 MEDIA_PUBLIC_BASE_URL = "https://pub-account-specific-id.r2.dev"
 # Comma-separated, exact browser origins. An empty value denies cross-origin access.
 ALLOWED_ORIGINS = ""
+# Set as a Worker secret (`wrangler secret put ADMIN_API_TOKEN`), never here.
+# Automatic publishing remains disabled; admin publication always requires an
+# authenticated request with explicit approval.
