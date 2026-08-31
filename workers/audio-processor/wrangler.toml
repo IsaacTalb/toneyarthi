@@ -22,3 +22,7 @@ bucket_name = "tone-yar-thi-media"
 
 [vars]
 MEDIA_PUBLIC_BASE_URL = "https://pub-account-specific-id.r2.dev"
+GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
+TTS_NARRATOR = "Kore"
+TTS_STYLE = "Clear, calm Burmese news narration"
+TTS_TIMEOUT_MS = "60000"

@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@toneyarthi/ai": "workspace:*",
+    "@toneyarthi/media": "workspace:*",
     "@toneyarthi/types": "workspace:*"
   },
   "scripts": {
