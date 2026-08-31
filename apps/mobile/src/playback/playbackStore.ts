@@ -22,7 +22,14 @@ export const playbackStore: PlaybackStore = {
         !PLAYBACK_RATES.includes(value.rate as never)
       )
         return null;
-      return value as PlaybackState;
+      const queue = Array.isArray(value.queue) ? value.queue : [value.item];
+      const currentIndex =
+        typeof value.currentIndex === 'number' &&
+        value.currentIndex >= 0 &&
+        value.currentIndex < queue.length
+          ? value.currentIndex
+          : 0;
+      return { ...value, queue, currentIndex } as PlaybackState;
     } catch {
       return null;
     }

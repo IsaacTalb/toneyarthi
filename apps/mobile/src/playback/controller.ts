@@ -59,7 +59,7 @@ export class PlaybackController {
     if (!saved?.item || this.disposed || this.state.item) return;
     const position = saved.position;
     this.update({ rate: saved.rate });
-    await this.load(saved.item);
+    await this.replaceQueue(saved.queue, saved.currentIndex, false);
     await this.seek(position);
   }
 
@@ -72,6 +72,12 @@ export class PlaybackController {
   }
 
   async load(item: PlaybackItem) {
+    await this.replaceQueue([item], 0, false);
+  }
+
+  private async loadCurrent(autoplay: boolean) {
+    const item = this.state.queue[this.state.currentIndex];
+    if (!item) return;
     const generation = ++this.generation;
     this.update({
       phase: 'loading',
@@ -88,14 +94,61 @@ export class PlaybackController {
         phase: 'ready',
         duration: Math.max(loaded.duration || 0, 0),
       });
+      if (autoplay) await this.play();
     } catch (error) {
       if (this.disposed || generation !== this.generation) return;
       this.update({
         phase: 'error',
         error: error instanceof Error ? error.message : 'Audio is unavailable',
       });
+      // A broken entry must not strand a playlist. Continue until a playable
+      // item is found (or the ordered queue is exhausted).
+      if (this.state.currentIndex < this.state.queue.length - 1)
+        await this.moveTo(this.state.currentIndex + 1, autoplay);
     }
   }
+
+  async replaceQueue(items: PlaybackItem[], startIndex = 0, autoplay = true) {
+    const seen = new Set<string>();
+    const queue = items.filter(
+      (item) =>
+        Boolean(item.id && item.uri) &&
+        !seen.has(item.id) &&
+        Boolean(seen.add(item.id)),
+    );
+    if (!queue.length) {
+      this.generation++;
+      this.update({ ...initialPlaybackState, rate: this.state.rate });
+      return;
+    }
+    const currentIndex = Math.min(Math.max(startIndex, 0), queue.length - 1);
+    this.update({ queue, currentIndex });
+    await this.loadCurrent(autoplay);
+  }
+
+  playNext(item: PlaybackItem) {
+    if (
+      !item.id ||
+      !item.uri ||
+      this.state.queue.some((entry) => entry.id === item.id)
+    )
+      return false;
+    const index = Math.max(this.state.currentIndex + 1, 0);
+    const queue = [...this.state.queue];
+    queue.splice(index, 0, item);
+    this.update({ queue });
+    return true;
+  }
+
+  private async moveTo(index: number, autoplay = true) {
+    if (index < 0 || index >= this.state.queue.length) return false;
+    this.update({ currentIndex: index });
+    await this.loadCurrent(autoplay);
+    return true;
+  }
+
+  next = () => this.moveTo(this.state.currentIndex + 1);
+  previous = () => this.moveTo(this.state.currentIndex - 1);
 
   async play() {
     if (
@@ -143,15 +196,14 @@ export class PlaybackController {
   }
 
   private onProgress(progress: DriverProgress) {
-    if (
-      progress.generation !== this.generation ||
-      this.state.phase === 'loading'
-    )
-      return;
+    if (progress.generation !== this.generation) return;
     if (!progress.available) {
       this.update({ phase: 'error', error: 'Audio is unavailable' });
+      if (this.state.currentIndex < this.state.queue.length - 1)
+        void this.moveTo(this.state.currentIndex + 1);
       return;
     }
+    if (this.state.phase === 'loading') return;
     const duration = Math.max(progress.duration || this.state.duration, 0);
     this.update({
       duration,
@@ -165,6 +217,7 @@ export class PlaybackController {
             : 'ready',
       error: null,
     });
+    if (progress.ended) void this.next();
   }
 
   async dispose() {

@@ -147,6 +147,8 @@ test('restores item, rate, and position without autoplay', async () => {
     duration: 60,
     rate: 1.5,
     error: null,
+    queue: [item('story')],
+    currentIndex: 0,
   });
   const controller = new PlaybackController(driver, store);
   const restoring = controller.restore();
@@ -156,4 +158,74 @@ test('restores item, rate, and position without autoplay', async () => {
   assert.equal(controller.getSnapshot().phase, 'ready');
   assert.equal(controller.getSnapshot().rate, 1.5);
   assert.deepEqual(driver.seeks, [25]);
+});
+
+test('queue navigation observes both boundaries', async () => {
+  const driver = new Driver();
+  const controller = new PlaybackController(driver);
+  const replacing = controller.replaceQueue(
+    [item('one'), item('two')],
+    0,
+    false,
+  );
+  driver.loads[0]!.resolve({ duration: 10 });
+  await replacing;
+  assert.equal(await controller.previous(), false);
+  const advancing = controller.next();
+  driver.loads[1]!.resolve({ duration: 10 });
+  assert.equal(await advancing, true);
+  assert.equal(controller.getSnapshot().currentIndex, 1);
+  assert.equal(await controller.next(), false);
+});
+
+test('play-next is ordered and refuses duplicate IDs', async () => {
+  const driver = new Driver();
+  const controller = new PlaybackController(driver);
+  const replacing = controller.replaceQueue(
+    [item('one'), item('three')],
+    0,
+    false,
+  );
+  driver.loads[0]!.resolve({ duration: 10 });
+  await replacing;
+  assert.equal(controller.playNext(item('two')), true);
+  assert.equal(controller.playNext(item('two')), false);
+  assert.deepEqual(
+    controller.getSnapshot().queue.map(({ id }) => id),
+    ['one', 'two', 'three'],
+  );
+});
+
+test('an ended item advances automatically and skips an unavailable item', async () => {
+  const driver = new Driver();
+  const controller = new PlaybackController(driver);
+  const replacing = controller.replaceQueue(
+    [item('one'), item('two'), item('three')],
+    0,
+    false,
+  );
+  driver.loads[0]!.resolve({ duration: 10 });
+  await replacing;
+  driver.listener?.({
+    generation: driver.loads[0]!.generation,
+    position: 10,
+    duration: 10,
+    playing: false,
+    available: true,
+    ended: true,
+  });
+  await Promise.resolve();
+  assert.equal(controller.getSnapshot().item?.id, 'two');
+  // Rejecting the middle load automatically attempts the final entry.
+  const failed = driver.loads[1]!;
+  // Driver test promises only expose resolve; simulate unavailability via progress.
+  driver.listener?.({
+    generation: failed.generation,
+    position: 0,
+    duration: 0,
+    playing: false,
+    available: false,
+  });
+  await Promise.resolve();
+  assert.equal(controller.getSnapshot().item?.id, 'three');
 });

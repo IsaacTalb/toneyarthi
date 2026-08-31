@@ -21,6 +21,9 @@ export interface PlaybackState {
   duration: number;
   rate: PlaybackRate;
   error: string | null;
+  /** Ordered, individually playable stories. Audio is never concatenated. */
+  queue: PlaybackItem[];
+  currentIndex: number;
 }
 
 export interface DriverProgress {
@@ -55,4 +58,6 @@ export const initialPlaybackState: PlaybackState = {
   duration: 0,
   rate: 1,
   error: null,
+  queue: [],
+  currentIndex: -1,
 };

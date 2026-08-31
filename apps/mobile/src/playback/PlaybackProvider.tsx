@@ -47,6 +47,10 @@ export function usePlayback() {
   return {
     ...state,
     load: controller.load.bind(controller),
+    replaceQueue: controller.replaceQueue.bind(controller),
+    playNext: controller.playNext.bind(controller),
+    next: controller.next,
+    previous: controller.previous,
     play: controller.play.bind(controller),
     pause: controller.pause.bind(controller),
     seek: controller.seek.bind(controller),
