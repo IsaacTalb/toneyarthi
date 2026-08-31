@@ -45,7 +45,14 @@ export interface AudioMetadata {
   url: string;
   durationSeconds: number;
   mimeType: string;
-  sizeBytes?: number;
+  /** Container-independent codec name, for example `opus` or `mp3`. */
+  codec: string;
+  /** Average encoded bitrate. PCM assets use their exact sample bitrate. */
+  bitrateBps: number;
+  sizeBytes: number;
+  channels: number;
+  sampleRateHz: number;
+  sizeWarning?: 'over_target';
   generatedAt: string;
 }
 

@@ -2,12 +2,14 @@
   "name": "@toneyarthi/audio-processor",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@toneyarthi/ai": "workspace:*",
     "@toneyarthi/media": "workspace:*",
     "@toneyarthi/types": "workspace:*"
   },
   "scripts": {
+    "test": "node --experimental-strip-types --test test/**/*.test.ts",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "deploy:dry-run": "wrangler deploy --dry-run --outdir dist",

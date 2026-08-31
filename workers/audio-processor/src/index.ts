@@ -1,8 +1,13 @@
 import { createGeminiClient } from '@toneyarthi/ai';
 import { audioKey, normalizeMediaKey, type MediaKey } from '@toneyarthi/media';
+import {
+  validateWavHeader,
+  WAV_HEADER_BYTES,
+  wavFromPcm,
+} from './audio-format.js';
 
 const service = 'audio-processor';
-const WAV_HEADER_BYTES = 44;
+const AUDIO_SIZE_TARGET_BYTES = 2 * 1024 * 1024;
 
 interface Env {
   DB: D1Database;
@@ -116,45 +121,16 @@ function positiveInteger(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
-function wavFromPcm(data: Uint8Array, mimeType: string) {
-  const rateMatch = /rate=(\d+)/i.exec(mimeType);
-  const sampleRate = Number(rateMatch?.[1] ?? 24_000);
-  if (!/^audio\/(?:l16|pcm)(?:;|$)/i.test(mimeType) || data.byteLength % 2)
-    throw new Error(`Unsupported or malformed TTS audio format: ${mimeType}`);
-  const output = new Uint8Array(WAV_HEADER_BYTES + data.byteLength);
-  const view = new DataView(output.buffer);
-  const text = (offset: number, value: string) =>
-    [...value].forEach((character, index) =>
-      view.setUint8(offset + index, character.charCodeAt(0)),
-    );
-  text(0, 'RIFF');
-  view.setUint32(4, output.byteLength - 8, true);
-  text(8, 'WAVE');
-  text(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  text(36, 'data');
-  view.setUint32(40, data.byteLength, true);
-  output.set(data, WAV_HEADER_BYTES);
-  return {
-    data: output,
-    sampleRate,
-    durationSeconds: data.byteLength / 2 / sampleRate,
-  };
-}
-
 function isValidAudioObject(object: R2Object | null): object is R2Object {
   return (
     object !== null &&
     object.size > WAV_HEADER_BYTES &&
     object.httpMetadata?.contentType === 'audio/wav' &&
     object.customMetadata?.ready === 'true' &&
-    Number(object.customMetadata?.durationSeconds) > 0
+    object.customMetadata?.codec === 'pcm_s16le' &&
+    Number(object.customMetadata?.durationSeconds) > 0 &&
+    Number(object.customMetadata?.bitrateBps) > 0 &&
+    Number(object.customMetadata?.sizeBytes) === object.size
   );
 }
 
@@ -167,13 +143,18 @@ async function finish(
 ) {
   const durationSeconds = Number(object.customMetadata?.durationSeconds);
   const sampleRate = Number(object.customMetadata?.sampleRate);
+  const bitrateBps = Number(object.customMetadata?.bitrateBps);
+  const sizeWarning = object.size > AUDIO_SIZE_TARGET_BYTES;
   const result = {
     audioKey: key,
     durationSeconds,
     sizeBytes: object.size,
     ready: true,
     mimeType: 'audio/wav',
+    codec: 'pcm_s16le',
     encoding: 'pcm_s16le',
+    bitrateBps,
+    ...(sizeWarning ? { sizeWarning: 'over_target' as const } : {}),
     sampleRate,
     channels: 1,
     model: env.GEMINI_TTS_MODEL,
@@ -183,13 +164,17 @@ async function finish(
     env.DB.prepare(
       `INSERT INTO story_audio_assets
          (cluster_id, audio_script_id, job_id, audio_key, duration_seconds,
-          byte_size, ready, mime_type, encoding, sample_rate, channels, model, narrator)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 'audio/wav', 'pcm_s16le', ?7, 1, ?8, ?9)
+          byte_size, ready, mime_type, encoding, sample_rate, channels, model, narrator,
+          codec, bitrate_bps, size_warning)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 'audio/wav', 'pcm_s16le', ?7, 1, ?8, ?9,
+               'pcm_s16le', ?10, ?11)
        ON CONFLICT(audio_script_id) DO UPDATE SET
          job_id=excluded.job_id, audio_key=excluded.audio_key,
          duration_seconds=excluded.duration_seconds, byte_size=excluded.byte_size,
          ready=1, mime_type=excluded.mime_type, encoding=excluded.encoding,
          sample_rate=excluded.sample_rate, channels=excluded.channels,
+         codec=excluded.codec, bitrate_bps=excluded.bitrate_bps,
+         size_warning=excluded.size_warning,
          model=excluded.model, narrator=excluded.narrator,
          generated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
     ).bind(
@@ -202,6 +187,8 @@ async function finish(
       sampleRate,
       env.GEMINI_TTS_MODEL,
       env.TTS_NARRATOR?.trim() || null,
+      bitrateBps,
+      sizeWarning ? 'over_target' : null,
     ),
     env.DB.prepare(
       `UPDATE processing_jobs SET status='completed', result=?2, error_message=NULL,
@@ -285,12 +272,29 @@ async function processMessage(message: Message<unknown>, env: Env) {
       model: env.GEMINI_TTS_MODEL,
     });
     const wav = wavFromPcm(speech.data, speech.mimeType);
-    if (!(wav.durationSeconds > 0)) throw new Error('Generated audio is empty');
+    if (!(wav.durationSeconds > 0) || !validateWavHeader(wav.data))
+      throw new Error('Generated audio has an invalid WAV header');
+    const sizeWarning = wav.data.byteLength > AUDIO_SIZE_TARGET_BYTES;
+    if (sizeWarning)
+      console.warn(
+        JSON.stringify({
+          event: 'audio.size.over_target',
+          service,
+          jobId: payload.jobId,
+          sizeBytes: wav.data.byteLength,
+          targetBytes: AUDIO_SIZE_TARGET_BYTES,
+          durationSeconds: wav.durationSeconds,
+        }),
+      );
     const metadata = {
       ready: 'true',
       durationSeconds: String(wav.durationSeconds),
       sampleRate: String(wav.sampleRate),
       encoding: 'pcm_s16le',
+      codec: 'pcm_s16le',
+      bitrateBps: String(wav.bitrateBps),
+      sizeBytes: String(wav.data.byteLength),
+      sizeWarning: sizeWarning ? 'over_target' : 'none',
       channels: '1',
       sourceMimeType: speech.mimeType,
     };
