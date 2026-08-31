@@ -23,6 +23,7 @@ import {
 } from '../../src/components';
 import { useTheme } from '../../src/theme';
 import { usePlayback } from '../../src/playback';
+import { useDownloads } from '../../src/downloads';
 
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat('my-MM', {
@@ -112,6 +113,8 @@ export default function ArticleScreen() {
   const t = useTheme();
   const router = useRouter();
   const playback = usePlayback();
+  const downloads = useDownloads();
+  const [isDownloading, setIsDownloading] = useState(false);
   const { slug = '' } = useLocalSearchParams<{ slug?: string }>();
   const articleSlug = Array.isArray(slug) ? slug[0] : slug;
   const article = useQuery({
@@ -195,6 +198,27 @@ export default function ArticleScreen() {
       source: data.sources?.[0]?.name,
     });
     router.push({ pathname: '/player', params: { articleId: data.id } });
+  };
+  const downloaded = downloads.records.some((item) => item.id === data.id);
+  const toggleDownload = async () => {
+    if (!data.audioUrl || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      if (downloaded) await downloads.remove(data.id);
+      else
+        await downloads.download({
+          id: data.id,
+          title,
+          remoteUri: data.audioUrl,
+        });
+    } catch {
+      Alert.alert(
+        'ဒေါင်းလုဒ် မအောင်မြင်ပါ',
+        'အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်ကြိုးစားပါ။',
+      );
+    } finally {
+      setIsDownloading(false);
+    }
   };
   const openSource = async (url: string) => {
     const safeUrl = validatedHttpsUrl(url);
@@ -288,6 +312,22 @@ export default function ArticleScreen() {
                 paddingHorizontal: t.spacing.md,
               }}
             >
+              {data.audioUrl ? (
+                <Action
+                  icon={
+                    downloaded ? 'checkmark-circle' : 'cloud-download-outline'
+                  }
+                  label={
+                    isDownloading
+                      ? 'သိမ်းနေသည်…'
+                      : downloaded
+                        ? 'သိမ်းပြီး'
+                        : 'ဒေါင်းလုဒ်'
+                  }
+                  active={downloaded}
+                  onPress={() => void toggleDownload()}
+                />
+              ) : null}
               {data.audioUrl ? (
                 <Action
                   icon="headset-outline"
