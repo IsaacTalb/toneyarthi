@@ -45,6 +45,10 @@ export const STORY_PIPELINE_STATES = [
   'EXTRACTING',
   'WRITING',
   'READY_FOR_REVIEW',
+  'VERIFYING',
+  'TTS_PENDING',
+  'NEEDS_REVIEW',
+  'FAILED_VERIFICATION',
   'PUBLISHED',
 ] as const;
 export type StoryPipelineState = (typeof STORY_PIPELINE_STATES)[number];
