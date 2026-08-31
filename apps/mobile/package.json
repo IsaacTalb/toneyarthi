@@ -2,17 +2,20 @@
   "name": "@toneyarthi/mobile",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "test": "node --experimental-strip-types --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@toneyarthi/types": "workspace:*",
     "@expo/vector-icons": "^15.0.2",
+    "@tanstack/react-query": "^5.87.4",
     "expo": "~54.0.20",
     "expo-constants": "~18.0.10",
     "expo-font": "~14.0.9",
