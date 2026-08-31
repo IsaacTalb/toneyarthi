@@ -56,6 +56,8 @@ export interface AudioMetadata {
   generatedAt: string;
 }
 
+import type { ArticleImage } from './image';
+
 /** A processed article suitable for API and application consumers. */
 export interface Article {
   id: string;
@@ -65,6 +67,8 @@ export interface Article {
   category: Category;
   language: string;
   imageUrl?: string;
+  /** Authorized image variants and their reuse provenance. */
+  image?: ArticleImage;
   source: ArticleSource;
   audio?: AudioMetadata;
   publishedAt: string;
