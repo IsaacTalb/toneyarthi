@@ -8,7 +8,7 @@ Gemini, D1, R2, or Queue integration.
 
 - Node.js 22 or newer
 - pnpm 10.28.1 (Corepack can install the version declared in `package.json`)
-- Expo Go or a platform simulator for mobile development
+- An Expo development client (Expo Go is insufficient for native audio testing)
 
 ## Getting started
 
@@ -51,6 +51,8 @@ in [`docs/architecture.md`](docs/architecture.md).
 
 R2 media setup and the shared backend helpers are documented in
 [`packages/media/README.md`](packages/media/README.md).
+
+Native background-audio setup, store configuration, development-client limitations, and the physical-device acceptance matrix are documented in [`docs/mobile-background-audio.md`](docs/mobile-background-audio.md).
 
 ## Cloudflare D1
 

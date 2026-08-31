@@ -9,6 +9,8 @@ import type {
   DriverProgress,
   PlaybackItem,
   PlaybackRate,
+  PlaybackState,
+  PlaybackStore,
 } from '../src/playback/types.ts';
 
 const item = (id: string): PlaybackItem => ({
@@ -45,6 +47,20 @@ class Driver implements AudioDriver {
     };
   }
   dispose() {}
+}
+
+class Store implements PlaybackStore {
+  saved: PlaybackState[] = [];
+  private readonly restored: PlaybackState | null;
+  constructor(restored: PlaybackState | null) {
+    this.restored = restored;
+  }
+  async load() {
+    return this.restored;
+  }
+  async save(state: PlaybackState) {
+    this.saved.push(state);
+  }
 }
 
 test('newer loads win and stale progress is ignored', async () => {
@@ -111,4 +127,24 @@ test('only supported rates are applied and the choice survives a load', async ()
   await loading;
   assert.equal(controller.getSnapshot().rate, 1.5);
   assert.deepEqual(driver.rates, [1.5]);
+});
+
+test('restores item, rate, and position without autoplay', async () => {
+  const driver = new Driver();
+  const store = new Store({
+    phase: 'playing',
+    item: item('story'),
+    position: 25,
+    duration: 60,
+    rate: 1.5,
+    error: null,
+  });
+  const controller = new PlaybackController(driver, store);
+  const restoring = controller.restore();
+  await Promise.resolve();
+  driver.loads[0]!.resolve({ duration: 60 });
+  await restoring;
+  assert.equal(controller.getSnapshot().phase, 'ready');
+  assert.equal(controller.getSnapshot().rate, 1.5);
+  assert.deepEqual(driver.seeks, [25]);
 });

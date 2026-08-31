@@ -25,6 +25,9 @@ export class ExpoAudioDriver implements AudioDriver {
       interruptionMode: 'doNotMix',
     });
     this.player.replace({ uri: item.uri, name: item.title });
+    // Expo Audio maps the active player to MediaSession/Now Playing. Native
+    // headset, Bluetooth, lock-screen, notification, interruption, and route
+    // events consequently flow back through playbackStatusUpdate below.
     this.player.setActiveForLockScreen(true, {
       title: item.title,
       artist: item.artist,
