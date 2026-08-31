@@ -10,6 +10,7 @@ import { AppState } from 'react-native';
 import { PlaybackController } from './controller';
 import { ExpoAudioDriver } from './expoAudioDriver';
 import { playbackStore } from './playbackStore';
+import { downloadStorage } from '../downloads/native';
 
 const PlaybackContext = createContext<PlaybackController | null>(null);
 
@@ -46,7 +47,11 @@ export function usePlayback() {
   );
   return {
     ...state,
-    load: controller.load.bind(controller),
+    load: async (item: Parameters<PlaybackController['load']>[0]) =>
+      controller.load({
+        ...item,
+        uri: (await downloadStorage.verifiedUri(item.id)) ?? item.uri,
+      }),
     replaceQueue: controller.replaceQueue.bind(controller),
     playNext: controller.playNext.bind(controller),
     next: controller.next,
