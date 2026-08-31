@@ -15,3 +15,5 @@ bucket_name = "tone-yar-thi-media"
 
 [vars]
 MEDIA_PUBLIC_BASE_URL = "https://pub-account-specific-id.r2.dev"
+# Comma-separated, exact browser origins. An empty value denies cross-origin access.
+ALLOWED_ORIGINS = ""
