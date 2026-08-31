@@ -54,6 +54,10 @@ R2 media setup and the shared backend helpers are documented in
 
 Native background-audio setup, store configuration, development-client limitations, and the physical-device acceptance matrix are documented in [`docs/mobile-background-audio.md`](docs/mobile-background-audio.md).
 
+Expo push registration, Firebase/APNs/EAS credentials, store-console checks,
+physical-device acceptance, and the intentionally conservative sending policy
+are documented in [`docs/push-notifications.md`](docs/push-notifications.md).
+
 ## Cloudflare D1
 
 Each Worker includes an example `DB` binding that points at the same placeholder

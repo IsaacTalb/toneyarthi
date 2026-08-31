@@ -14,7 +14,8 @@
         {
           "microphonePermission": false
         }
-      ]
+      ],
+      ["expo-notifications", { "defaultChannel": "news" }]
     ],
     "experiments": {
       "typedRoutes": true
