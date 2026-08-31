@@ -1,4 +1,5 @@
 import { AdminError, handleAdminAction } from './admin.ts';
+import { handlePushTokenRequest, PushTokenError } from './push-tokens.ts';
 
 const service = 'api';
 const API_PREFIX = '/v1';
@@ -118,8 +119,11 @@ async function jsonResponse(
   const origin = allowedOrigin(request, env);
   if (origin) {
     headers.set('access-control-allow-origin', origin);
-    headers.set('access-control-allow-methods', 'GET, OPTIONS');
-    headers.set('access-control-allow-headers', 'Accept, If-None-Match');
+    headers.set('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
+    headers.set(
+      'access-control-allow-headers',
+      'Accept, Content-Type, If-None-Match',
+    );
     headers.set('access-control-max-age', '86400');
   }
   if (
@@ -332,7 +336,12 @@ export async function handleRequest(
         throw new HttpError(403, 'CORS_ORIGIN_DENIED', 'Origin is not allowed');
       return jsonResponse(request, env, {}, 204, 'no-store');
     }
-    if (request.method === 'POST') {
+    if (request.method === 'POST' || request.method === 'DELETE') {
+      const pushResult = await handlePushTokenRequest(request, env, url);
+      if (pushResult !== null)
+        return jsonResponse(request, env, pushResult, 200, 'no-store');
+      if (request.method === 'DELETE')
+        throw new HttpError(404, 'NOT_FOUND', 'Route not found');
       const data = await handleAdminAction(request, env, url);
       if (data === null)
         throw new HttpError(404, 'NOT_FOUND', 'Route not found');
@@ -348,7 +357,9 @@ export async function handleRequest(
     return jsonResponse(request, env, result.data, 200, result.cache);
   } catch (error) {
     const safe =
-      error instanceof HttpError || error instanceof AdminError
+      error instanceof HttpError ||
+      error instanceof AdminError ||
+      error instanceof PushTokenError
         ? error
         : new HttpError(500, 'INTERNAL_ERROR', 'An internal error occurred');
     return jsonResponse(
