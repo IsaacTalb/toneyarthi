@@ -3,6 +3,7 @@ export * from './CategoryChip';
 export * from './Container';
 export * from './Divider';
 export * from './IconButton';
+export * from './HomeStoryCard';
 export * from './LoadingSkeleton';
 export * from './SectionHeader';
 export * from './States';
