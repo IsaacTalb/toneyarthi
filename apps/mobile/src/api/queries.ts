@@ -1,4 +1,8 @@
-import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import {
+  infiniteQueryOptions,
+  keepPreviousData,
+  queryOptions,
+} from '@tanstack/react-query';
 import { createApiClient, shouldRetry, type PaginationInput } from './client';
 
 export const STALE_TIMES = {
@@ -12,6 +16,7 @@ export const STALE_TIMES = {
 export const queryKeys = {
   feeds: ['feeds'] as const,
   feed: (input: PaginationInput = {}) => ['feeds', 'latest', input] as const,
+  homeFeed: (limit = 12) => ['feeds', 'home', { limit }] as const,
   categoryFeed: (slug: string, input: PaginationInput = {}) =>
     ['feeds', 'category', slug, input] as const,
   articles: ['articles'] as const,
@@ -33,6 +38,21 @@ const paged = {
 } as const;
 
 export const queries = {
+  homeFeed: (limit = 12) =>
+    infiniteQueryOptions({
+      queryKey: queryKeys.homeFeed(limit),
+      initialPageParam: { page: 1 } as PaginationInput,
+      queryFn: ({ pageParam, signal }) =>
+        api.feed({ limit, ...pageParam }, signal),
+      getNextPageParam: (lastPage) => {
+        if (!lastPage.hasMore) return undefined;
+        return lastPage.nextCursor
+          ? { cursor: lastPage.nextCursor }
+          : { page: lastPage.page + 1 };
+      },
+      staleTime: STALE_TIMES.feed,
+      retry: shouldRetry,
+    }),
   feed: (input: PaginationInput = {}) =>
     queryOptions({
       queryKey: queryKeys.feed(input),
