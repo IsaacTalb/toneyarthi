@@ -7,6 +7,8 @@ export interface NewsSourceDefinition {
   siteUrl: string;
   feedUrl: string;
   language: string;
+  /** Parser implementation selected from the compile-time adapter registry. */
+  adapterType: 'rss';
 }
 
 export interface NewsFetchOptions {

@@ -186,12 +186,20 @@ async function processSource(
       }
     }
     await env.DB.prepare(
-      "UPDATE sources SET last_fetched_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
+      "UPDATE sources SET last_fetched_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), last_success_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), last_error = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
     )
       .bind(source.id)
       .run();
   } catch (error) {
-    summary.errors.push(error instanceof Error ? error.message : String(error));
+    const message = (
+      error instanceof Error ? error.message : String(error)
+    ).slice(0, 1000);
+    summary.errors.push(message);
+    await env.DB.prepare(
+      "UPDATE sources SET last_error=?2,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1",
+    )
+      .bind(source.id, message)
+      .run();
   }
   summary.durationMs = Date.now() - started;
   console.log(JSON.stringify({ event: 'ingest.source.completed', ...summary }));
