@@ -9,6 +9,7 @@ import {
 import { downloadStorage } from './native';
 import type { DownloadRecord, DownloadRequest } from './types';
 import { useDataPolicy } from '../dataPolicy';
+import { analytics } from '../analytics';
 
 type DownloadsContextValue = {
   records: DownloadRecord[];
@@ -36,10 +37,20 @@ export function DownloadsProvider({ children }: PropsWithChildren) {
         if (automatic && !policy.downloads.automaticAudio) return;
         await downloadStorage.download(request);
         setRecords(downloadStorage.list());
+        analytics.track('download_changed', {
+          article_id: request.id,
+          action: 'downloaded',
+          automatic,
+        });
       },
       async remove(id) {
         await downloadStorage.remove(id);
         setRecords(downloadStorage.list());
+        analytics.track('download_changed', {
+          article_id: id,
+          action: 'removed',
+          automatic: false,
+        });
       },
     }),
     [policy.downloads.automaticAudio, ready, records],

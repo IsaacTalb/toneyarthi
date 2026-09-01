@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -26,6 +26,7 @@ import { usePlayback } from '../../src/playback';
 import { useDownloads } from '../../src/downloads';
 import { useBookmarks } from '../../src/bookmarks';
 import { usePolicyImageUrl } from '../../src/dataPolicy';
+import { analytics, type ArticleEntryPoint } from '../../src/analytics';
 
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat('my-MM', {
@@ -118,7 +119,10 @@ export default function ArticleScreen() {
   const downloads = useDownloads();
   const bookmarks = useBookmarks();
   const [isDownloading, setIsDownloading] = useState(false);
-  const { slug = '' } = useLocalSearchParams<{ slug?: string }>();
+  const { slug = '', entryPoint } = useLocalSearchParams<{
+    slug?: string;
+    entryPoint?: string;
+  }>();
   const articleSlug = Array.isArray(slug) ? slug[0] : slug;
   const article = useQuery({
     ...queries.article(articleSlug),
@@ -131,6 +135,22 @@ export default function ArticleScreen() {
   });
   const isSaved = bookmarks.contains(article.data?.id ?? articleSlug);
   const policyImageUrl = usePolicyImageUrl(article.data?.imageUrl);
+  useEffect(() => {
+    if (!article.data) return;
+    const allowed: ArticleEntryPoint[] = [
+      'feed',
+      'search',
+      'saved',
+      'notification',
+      'related',
+    ];
+    analytics.track('article_open', {
+      article_id: article.data.id,
+      entry_point: allowed.includes(entryPoint as ArticleEntryPoint)
+        ? (entryPoint as ArticleEntryPoint)
+        : 'unknown',
+    });
+  }, [article.data?.id, entryPoint]);
 
   const paragraphs = useMemo(
     () =>

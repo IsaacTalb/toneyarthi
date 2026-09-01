@@ -8,6 +8,11 @@ import {
   type PlaybackState,
   type PlaybackStore,
 } from './types.ts';
+import {
+  analytics,
+  AudioMilestoneTracker,
+  type MobileAnalytics,
+} from '../analytics/index.ts';
 
 export const clampPosition = (position: number, duration: number) =>
   Math.min(
@@ -24,10 +29,19 @@ export class PlaybackController {
   private unsubscribe: () => void;
   private readonly store?: PlaybackStore;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly milestones: AudioMilestoneTracker;
+  private startedItemId: string | null = null;
+  private readonly analyticsClient: MobileAnalytics;
 
-  constructor(driver: AudioDriver, store?: PlaybackStore) {
+  constructor(
+    driver: AudioDriver,
+    store?: PlaybackStore,
+    analyticsClient: MobileAnalytics = analytics,
+  ) {
     this.driver = driver;
     this.store = store;
+    this.analyticsClient = analyticsClient;
+    this.milestones = new AudioMilestoneTracker(analyticsClient);
     this.unsubscribe = driver.subscribe((progress) =>
       this.onProgress(progress),
     );
@@ -79,6 +93,8 @@ export class PlaybackController {
     const item = this.state.queue[this.state.currentIndex];
     if (!item) return;
     const generation = ++this.generation;
+    this.milestones.reset(item.id);
+    this.startedItemId = null;
     this.update({
       phase: 'loading',
       item,
@@ -122,6 +138,11 @@ export class PlaybackController {
       return;
     }
     const currentIndex = Math.min(Math.max(startIndex, 0), queue.length - 1);
+    if (autoplay && queue.length > 1)
+      this.analyticsClient.track('playlist_started', {
+        item_count: queue.length,
+        start_index: currentIndex,
+      });
     this.update({ queue, currentIndex });
     await this.loadCurrent(autoplay);
   }
@@ -161,6 +182,15 @@ export class PlaybackController {
       await this.driver.play();
       if (generation !== this.generation) return;
       this.update({ phase: 'playing', error: null });
+      if (this.startedItemId !== this.state.item.id) {
+        this.startedItemId = this.state.item.id;
+        this.analyticsClient.track('audio_started', {
+          article_id: this.state.item.id,
+          ...(this.state.duration > 0
+            ? { duration_seconds: Math.round(this.state.duration) }
+            : {}),
+        });
+      }
     } catch (error) {
       this.update({
         phase: 'error',
@@ -175,6 +205,11 @@ export class PlaybackController {
     await this.driver.pause();
     if (generation !== this.generation) return;
     this.update({ phase: 'ready' });
+    if (this.state.item)
+      this.analyticsClient.track('audio_paused', {
+        article_id: this.state.item.id,
+        position_seconds: Math.round(this.state.position),
+      });
   }
 
   async seek(position: number) {
@@ -217,6 +252,17 @@ export class PlaybackController {
             : 'ready',
       error: null,
     });
+    if (this.state.item)
+      this.milestones.update(
+        this.state.item.id,
+        clampPosition(progress.position, duration),
+        duration,
+      );
+    if (progress.ended && this.state.item)
+      this.analyticsClient.track('audio_completed', {
+        article_id: this.state.item.id,
+        duration_seconds: Math.round(duration),
+      });
     if (progress.ended) void this.next();
   }
 
