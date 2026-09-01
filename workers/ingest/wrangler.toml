@@ -26,3 +26,5 @@ ENVIRONMENT = "production"
 
 [env.development.vars]
 ENVIRONMENT = "development"
+# Configure INGEST_TRIGGER_SECRET with `wrangler secret put`; it is
+# intentionally absent from vars and source control.

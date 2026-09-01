@@ -152,6 +152,38 @@ describe('public API boundary', () => {
       env(db) as never,
     );
     assert.equal(conditional.status, 304);
+    assert.equal(allowed.headers.get('x-frame-options'), 'DENY');
+    assert.match(
+      allowed.headers.get('content-security-policy')!,
+      /default-src 'none'/,
+    );
+  });
+
+  it('rejects oversized mutations and endpoint rate-limit failures before routing', async () => {
+    const db = new FakeDb();
+    const oversized = await handleRequest(
+      get('/v1/push-tokens', {
+        method: 'POST',
+        headers: {
+          'content-length': '65537',
+          'content-type': 'application/json',
+        },
+        body: '{}',
+      }),
+      env(db) as never,
+    );
+    assert.equal(oversized.status, 413);
+    const limited = await handleRequest(
+      get('/v1/search?q=world', {
+        headers: { 'cf-connecting-ip': '203.0.113.1' },
+      }),
+      {
+        ...env(db),
+        RATE_LIMITER: { limit: async () => ({ success: false }) },
+      } as never,
+    );
+    assert.equal(limited.status, 429);
+    assert.equal(db.calls.length, 0);
   });
 
   it('returns consistent safe errors without reflecting database exceptions', async () => {

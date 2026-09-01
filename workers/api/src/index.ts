@@ -13,6 +13,7 @@ const API_PREFIX = '/v1';
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 const MAX_PAGE = 500;
+const MAX_REQUEST_BYTES = 64 * 1024;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ID = /^[a-zA-Z0-9_-]{1,64}$/;
 
@@ -22,6 +23,9 @@ interface Env {
   ADMIN_API_TOKEN?: string;
   PIPELINE_QUEUE: Queue;
   TTS_QUEUE: Queue;
+  RATE_LIMITER?: {
+    limit(input: { key: string }): Promise<{ success: boolean }>;
+  };
 }
 
 type Json = Record<string, unknown> | unknown[];
@@ -125,6 +129,10 @@ async function jsonResponse(
     etag: `W/"${await digest(body)}"`,
     vary: 'Origin',
     'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'referrer-policy': 'no-referrer',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+    'content-security-policy': "default-src 'none'; frame-ancestors 'none'",
   });
   const origin = allowedOrigin(request, env);
   if (origin) {
@@ -341,6 +349,27 @@ export async function handleRequest(
   try {
     if (!url.pathname.startsWith(`${API_PREFIX}/`))
       throw new HttpError(404, 'NOT_FOUND', 'Route not found');
+    const contentLength = Number(request.headers.get('content-length'));
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES)
+      throw new HttpError(
+        413,
+        'REQUEST_TOO_LARGE',
+        'Request body is too large',
+      );
+    if (
+      env.RATE_LIMITER &&
+      (request.method !== 'GET' || url.pathname === '/v1/search')
+    ) {
+      const client = request.headers.get('cf-connecting-ip') ?? 'unknown';
+      const bucket = url.pathname.startsWith('/v1/admin/')
+        ? 'admin'
+        : url.pathname;
+      const result = await env.RATE_LIMITER.limit({
+        key: `${bucket}:${client}`,
+      });
+      if (!result.success)
+        throw new HttpError(429, 'RATE_LIMITED', 'Too many requests');
+    }
     if (request.method === 'OPTIONS') {
       if (request.headers.has('origin') && !allowedOrigin(request, env))
         throw new HttpError(403, 'CORS_ORIGIN_DENIED', 'Origin is not allowed');
