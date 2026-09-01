@@ -191,7 +191,7 @@ export default function PlayerScreen() {
                 />
               </View>
             </Pressable>
-            <View style={styles.timeRow}>
+            <View accessible={false} style={styles.timeRow}>
               <Typography variant="caption">
                 {clock(playback.position)}
               </Typography>
@@ -249,11 +249,12 @@ export default function PlayerScreen() {
           <View
             style={styles.rates}
             accessibilityLabel="ဖွင့်နှုန်း ရွေးချယ်ရန်"
+            accessibilityRole="radiogroup"
           >
             {PLAYBACK_RATES.map((rate) => (
               <Pressable
                 key={rate}
-                accessibilityRole="button"
+                accessibilityRole="radio"
                 accessibilityLabel={`${rate} ဆ နှုန်း`}
                 accessibilityState={{
                   selected: playback.rate === rate,

@@ -10,7 +10,8 @@ export function CategoryChip({
   const t = useTheme();
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole="radio"
+      accessibilityLabel={label}
       accessibilityState={{ selected }}
       hitSlop={4}
       {...props}

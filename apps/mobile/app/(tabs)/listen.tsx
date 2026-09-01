@@ -110,7 +110,9 @@ export default function ListenScreen() {
         {sections.map((section) => (
           <View key={section.key} style={{ gap: t.spacing.sm }}>
             <View style={styles.heading}>
-              <Typography variant="heading">{section.title}</Typography>
+              <Typography accessibilityRole="header" variant="heading">
+                {section.title}
+              </Typography>
               {section.items.length ? (
                 <Pressable
                   accessibilityRole="button"
@@ -132,6 +134,9 @@ export default function ListenScreen() {
                 <Pressable
                   key={item.id}
                   accessibilityRole="button"
+                  accessibilityLabel={item.titleMy?.trim() || item.title}
+                  accessibilityHint="အသံသတင်းကို ဖွင့်မည်"
+                  accessibilityState={{ busy: starting === section.key }}
                   onPress={() => void start(section.key, section.items, index)}
                   style={[
                     styles.row,

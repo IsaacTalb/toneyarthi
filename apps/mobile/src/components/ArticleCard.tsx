@@ -18,7 +18,8 @@ export function ArticleCard({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${category}: ${title}`}
+      accessibilityLabel={title}
+      accessibilityHint={`${category} သတင်းကို ဖတ်မည်`}
       {...props}
       style={({ pressed }) => [
         {

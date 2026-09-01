@@ -47,12 +47,16 @@ function MiniToggle() {
       accessibilityRole="button"
       accessibilityLabel={playing ? 'ခေတ္တရပ်မည်' : 'ဖွင့်မည်'}
       disabled={phase === 'loading'}
+      accessibilityState={{ disabled: phase === 'loading' }}
       hitSlop={10}
       onPress={(event) => {
         event.stopPropagation();
         void (playing ? controller.pause() : controller.play());
       }}
-      style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}
+      style={({ pressed }) => [
+        styles.miniToggle,
+        { opacity: pressed ? 0.65 : 1 },
+      ]}
     >
       <Ionicons
         name={playing ? 'pause-circle' : 'play-circle'}
@@ -119,52 +123,57 @@ export function PersistentPlayerHost() {
         },
       ]}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${presentedItem.title}၊ ပလေယာအပြည့် ဖွင့်မည်`}
-        onPress={() => router.push('/player')}
+      <View
         style={[
           styles.card,
           t.elevation.card,
           { backgroundColor: t.colors.surface, borderColor: t.colors.border },
         ]}
       >
-        {artworkUrl ? (
-          <Image
-            source={{ uri: artworkUrl }}
-            accessibilityIgnoresInvertColors
-            style={styles.artwork}
-          />
-        ) : (
-          <View
-            style={[
-              styles.artwork,
-              styles.placeholder,
-              { backgroundColor: t.colors.brandSoft },
-            ]}
-          >
-            <Ionicons
-              name="newspaper-outline"
-              size={24}
-              color={t.colors.brand}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`ယခု နားဆင်နေသည်၊ ${presentedItem.title}`}
+          accessibilityHint="ပလေယာအပြည့် ဖွင့်မည်"
+          onPress={() => router.push('/player')}
+          style={styles.openPlayer}
+        >
+          {artworkUrl ? (
+            <Image
+              source={{ uri: artworkUrl }}
+              accessibilityIgnoresInvertColors
+              style={styles.artwork}
             />
+          ) : (
+            <View
+              style={[
+                styles.artwork,
+                styles.placeholder,
+                { backgroundColor: t.colors.brandSoft },
+              ]}
+            >
+              <Ionicons
+                name="newspaper-outline"
+                size={24}
+                color={t.colors.brand}
+              />
+            </View>
+          )}
+          <View style={styles.copy}>
+            <Typography
+              variant="caption"
+              color={t.colors.inkMuted}
+              numberOfLines={1}
+            >
+              ယခု နားဆင်နေသည်
+            </Typography>
+            <Typography variant="label" numberOfLines={1}>
+              {presentedItem.title}
+            </Typography>
           </View>
-        )}
-        <View style={styles.copy}>
-          <Typography
-            variant="caption"
-            color={t.colors.inkMuted}
-            numberOfLines={1}
-          >
-            ယခု နားဆင်နေသည်
-          </Typography>
-          <Typography variant="label" numberOfLines={1}>
-            {presentedItem.title}
-          </Typography>
-        </View>
+        </Pressable>
         <MiniToggle />
         <MiniProgress />
-      </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -185,5 +194,18 @@ const styles = StyleSheet.create({
   artwork: { width: 48, height: 48, borderRadius: 9 },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, minWidth: 0 },
+  openPlayer: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  miniToggle: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   track: { position: 'absolute', height: 2, left: 0, right: 0, bottom: 0 },
 });

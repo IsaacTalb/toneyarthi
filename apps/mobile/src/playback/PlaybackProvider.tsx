@@ -6,11 +6,12 @@ import {
   useSyncExternalStore,
   type PropsWithChildren,
 } from 'react';
-import { AppState } from 'react-native';
+import { AccessibilityInfo, AppState } from 'react-native';
 import { PlaybackController } from './controller';
 import { ExpoAudioDriver } from './expoAudioDriver';
 import { playbackStore } from './playbackStore';
 import { downloadStorage } from '../downloads/native';
+import { playbackAnnouncement } from '../accessibility/playbackAnnouncements';
 
 const PlaybackContext = createContext<PlaybackController | null>(null);
 
@@ -24,6 +25,15 @@ export function PlaybackProvider({ children }: PropsWithChildren) {
       if (state !== 'active') void controller.persist();
     });
     return () => subscription.remove();
+  }, [controller]);
+  useEffect(() => {
+    let previous = controller.getSnapshot();
+    return controller.subscribe(() => {
+      const current = controller.getSnapshot();
+      const message = playbackAnnouncement(previous, current);
+      previous = current;
+      if (message) AccessibilityInfo.announceForAccessibility(message);
+    });
   }, [controller]);
   useEffect(
     () => () => {

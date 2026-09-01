@@ -14,7 +14,6 @@ export function Typography({
   return (
     <Text
       allowFontScaling
-      maxFontSizeMultiplier={2}
       {...props}
       style={[
         {
