@@ -918,6 +918,16 @@ export async function handleAdminAction(
        WHERE id = ?1 AND pipeline_state = ?6`,
     ).bind(id, nextState, action, now, actor, cluster.pipeline_state),
   ];
+  if (action === 'publish' || action === 'unpublish') {
+    statements.push(
+      env.DB.prepare(
+        `UPDATE articles SET status=?2,
+           published_at=CASE WHEN ?2='published' THEN COALESCE(published_at,?3) ELSE NULL END,
+           updated_at=?3
+         WHERE id IN (SELECT article_id FROM story_cluster_articles WHERE cluster_id=?1)`,
+      ).bind(id, action === 'publish' ? 'published' : 'draft', now),
+    );
+  }
   if (action === 'regenerate_article' || action === 'rehumanize') {
     statements.push(
       env.DB.prepare(
@@ -978,6 +988,36 @@ export async function handleAdminAction(
     ),
   );
   await env.DB.batch(statements);
+  if (
+    action === 'regenerate_article' ||
+    action === 'rehumanize' ||
+    action === 'regenerate_audio'
+  ) {
+    const message = {
+      version: 1,
+      jobId,
+      clusterId: id,
+      type:
+        action === 'regenerate_audio'
+          ? 'audio'
+          : action === 'rehumanize'
+            ? 'write'
+            : 'extract',
+    };
+    try {
+      await (
+        action === 'regenerate_audio' ? env.TTS_QUEUE : env.PIPELINE_QUEUE
+      ).send(message);
+    } catch (error) {
+      await env.DB.prepare(
+        `UPDATE processing_jobs SET status='failed',error_message='Queue hand-off failed',
+         completed_at=?2,updated_at=?2 WHERE id=?1 AND status='pending'`,
+      )
+        .bind(jobId, new Date().toISOString())
+        .run();
+      throw error;
+    }
+  }
   return result(
     {
       cluster_id: id,

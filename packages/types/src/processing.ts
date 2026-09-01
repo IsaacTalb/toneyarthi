@@ -67,7 +67,8 @@ export function nextAutomaticStoryState(
 }
 
 /** Automatic publication is forbidden for all stories; elevated stories additionally require review. */
-export function canAutomaticallyPublish(_risk: 'standard' | 'high'): false {
+export function canAutomaticallyPublish(risk: 'standard' | 'high'): false {
+  void risk;
   return false;
 }
 

@@ -12,7 +12,7 @@ function constantTimeEqual(left: string, right: string) {
   return mismatch === 0;
 }
 
-export async function login(_state: { error?: string }, formData: FormData) {
+export async function login(_state: { error: string }, formData: FormData) {
   const email = String(formData.get('email') ?? '')
     .trim()
     .toLowerCase();

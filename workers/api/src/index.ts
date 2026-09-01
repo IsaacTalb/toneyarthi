@@ -60,7 +60,7 @@ const ARTICLE_SUMMARY = `
   )) FROM (
     SELECT s.name, ars.source_url, s.site_url, ars.original_title, ars.original_published_at
     FROM article_sources ars JOIN sources s ON s.id = ars.source_id
-    WHERE ars.article_id = a.id AND s.is_active = 1 ORDER BY s.name
+    WHERE ars.article_id = a.id ORDER BY s.name
   ) source_rows), json('[]')) AS sources`;
 
 const PUBLISHABLE = `a.status = 'published' AND a.published_at IS NOT NULL AND a.published_at <= datetime('now')`;

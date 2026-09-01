@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { login } from './actions';
 
 export function LoginForm() {
-  const [state, action, pending] = useActionState(login, {});
+  const [state, action, pending] = useActionState(login, { error: '' });
   return (
     <form action={action} className="mt-8 space-y-5">
       <label className="block text-sm font-medium">

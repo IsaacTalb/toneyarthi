@@ -135,8 +135,9 @@ export default function ArticleScreen() {
   });
   const isSaved = bookmarks.contains(article.data?.id ?? articleSlug);
   const policyImageUrl = usePolicyImageUrl(article.data?.imageUrl);
+  const articleId = article.data?.id;
   useEffect(() => {
-    if (!article.data) return;
+    if (!articleId) return;
     const allowed: ArticleEntryPoint[] = [
       'feed',
       'search',
@@ -145,12 +146,12 @@ export default function ArticleScreen() {
       'related',
     ];
     analytics.track('article_open', {
-      article_id: article.data.id,
+      article_id: articleId,
       entry_point: allowed.includes(entryPoint as ArticleEntryPoint)
         ? (entryPoint as ArticleEntryPoint)
         : 'unknown',
     });
-  }, [article.data?.id, entryPoint]);
+  }, [articleId, entryPoint]);
 
   const paragraphs = useMemo(
     () =>

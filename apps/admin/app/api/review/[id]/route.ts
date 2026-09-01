@@ -26,7 +26,8 @@ async function forward(
     const path = action
       ? `/v1/admin/story-clusters/${encodeURIComponent(id)}/${action}`
       : `/v1/admin/story-clusters/${encodeURIComponent(id)}/draft`;
-    const { action: _action, ...details } = body;
+    const details = { ...body };
+    delete details.action;
     const data = await adminApi(path, {
       method,
       headers: {
