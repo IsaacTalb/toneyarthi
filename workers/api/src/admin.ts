@@ -1061,7 +1061,14 @@ export async function handleAdminReview(
     await Promise.all([
       currentDraft(env, id),
       env.DB.prepare(
-        `SELECT COALESCE(s.name,'Unknown source') name,a.title,COALESCE(ars.source_url,a.canonical_url) url,a.published_at publishedAt FROM story_cluster_articles sca JOIN articles a ON a.id=sca.article_id LEFT JOIN article_sources ars ON ars.article_id=a.id LEFT JOIN sources s ON s.id=ars.source_id WHERE sca.cluster_id=?1 ORDER BY sca.is_primary DESC,sca.added_at`,
+        `SELECT COALESCE(s.name,'Unknown source') name,
+        COALESCE(ars.original_title,a.title) title,
+        COALESCE(ars.source_url,a.canonical_url) url,
+        COALESCE(ars.original_published_at,a.published_at) publishedAt
+        FROM story_cluster_articles sca JOIN articles a ON a.id=sca.article_id
+        LEFT JOIN article_sources ars ON ars.article_id=a.id
+        LEFT JOIN sources s ON s.id=ars.source_id WHERE sca.cluster_id=?1
+        ORDER BY sca.is_primary DESC,sca.added_at`,
       )
         .bind(id)
         .all<Record<string, unknown>>(),

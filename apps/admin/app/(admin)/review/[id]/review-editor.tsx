@@ -318,6 +318,12 @@ export function ReviewEditor({ initial }: { initial: ReviewDetail }) {
                   <p className="mt-1 line-clamp-2 text-xs text-slate-500">
                     {source.title}
                   </p>
+                  {source.publishedAt && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Originally published{' '}
+                      {new Date(source.publishedAt).toLocaleString()}
+                    </p>
+                  )}
                 </a>
               ))}
             </div>
