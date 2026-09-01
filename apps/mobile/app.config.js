@@ -1,6 +1,7 @@
 import { generateExpoAssets } from './scripts/generate-expo-assets.mjs';
 
 const productionBundleIdentifier = 'com.toneyarthi.mobile';
+const androidVersionCode = 1;
 
 export default ({ config }) => {
   generateExpoAssets();
@@ -8,6 +9,10 @@ export default ({ config }) => {
   const profile = process.env.EAS_BUILD_PROFILE ?? 'development';
   const isProduction = profile === 'production';
   const isDevelopment = profile === 'development';
+  const applicationId = isProduction
+    ? productionBundleIdentifier
+    : `${productionBundleIdentifier}.preview`;
+  const googleServicesFile = process.env.GOOGLE_SERVICES_JSON;
 
   return {
     ...config,
@@ -41,9 +46,7 @@ export default ({ config }) => {
     experiments: { typedRoutes: true },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: isProduction
-        ? productionBundleIdentifier
-        : `${productionBundleIdentifier}.preview`,
+      bundleIdentifier: applicationId,
       buildNumber: '1',
       icon: './assets/icon.png',
       infoPlist: {
@@ -55,12 +58,16 @@ export default ({ config }) => {
       },
     },
     android: {
-      package: productionBundleIdentifier,
+      package: applicationId,
+      versionCode: androidVersionCode,
+      icon: './assets/icon.png',
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#F8F6F0',
       },
+      ...(googleServicesFile ? { googleServicesFile } : {}),
       permissions: [
+        'android.permission.POST_NOTIFICATIONS',
         'android.permission.FOREGROUND_SERVICE',
         'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
         'android.permission.WAKE_LOCK',
