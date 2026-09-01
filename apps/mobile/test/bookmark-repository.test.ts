@@ -46,3 +46,28 @@ test('bookmark repository ignores corrupt and obsolete stored entries', async ()
   });
   assert.deepEqual(await repository.list(), []);
 });
+
+test('serializes concurrent saves so neither persisted bookmark is lost', async () => {
+  let records: BookmarkSnapshot[] = [];
+  const repository = new LocalBookmarkRepository(
+    {
+      read: async () => {
+        await Promise.resolve();
+        return structuredClone(records);
+      },
+      write: async (value) => {
+        await Promise.resolve();
+        records = structuredClone(value);
+      },
+    },
+    () => new Date('2026-09-01T00:00:00.000Z'),
+  );
+  await Promise.all([
+    repository.save({ id: 'one', slug: 'one', title: 'One', category: 'News' }),
+    repository.save({ id: 'two', slug: 'two', title: 'Two', category: 'News' }),
+  ]);
+  assert.deepEqual(
+    (await repository.list()).map(({ id }) => id),
+    ['two', 'one'],
+  );
+});

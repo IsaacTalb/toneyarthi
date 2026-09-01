@@ -82,3 +82,45 @@ test('rejects a size mismatch and cleans the abandoned partial', async () => {
   );
   assert.equal(present.has('/downloads/bad.partial'), false);
 });
+
+test('does not expose uncommitted state when metadata persistence fails', async () => {
+  const { storage, present } = setup();
+  await storage.initialize();
+  const failing = new DownloadStorage(
+    {
+      ensureDirectory: async () => {},
+      list: async () => [],
+      exists: async (uri) => present.has(uri),
+      download: async (_remote, uri) => {
+        present.add(uri);
+        return { status: 200, size: 4 };
+      },
+      move: async (from, to) => {
+        present.delete(from);
+        present.add(to);
+      },
+      remove: async (uri) => {
+        present.delete(uri);
+      },
+      finalUri: (id) => `/downloads/${id}.audio`,
+      temporaryUri: (id) => `/downloads/${id}.partial`,
+    },
+    {
+      load: async () => [],
+      save: async () => {
+        throw new Error('disk full');
+      },
+    },
+  );
+  await failing.initialize();
+  await assert.rejects(
+    failing.download({
+      id: 'new',
+      title: 'New',
+      remoteUri: 'https://audio.test/new',
+    }),
+    /disk full/,
+  );
+  assert.deepEqual(failing.list(), []);
+  assert.equal(present.has('/downloads/new.partial'), false);
+});

@@ -160,3 +160,49 @@ describe('transport resilience', () => {
     assert.match(serialized, /HTTP 400/);
   });
 });
+
+describe('mocked TTS boundary', () => {
+  it('requests the configured voice and decodes inline audio deterministically', async () => {
+    let body: unknown;
+    const client = createGeminiClient(env, {
+      fetch: async (_url, init) => {
+        body = JSON.parse(String(init?.body));
+        return Response.json({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    inlineData: {
+                      data: 'AQID',
+                      mimeType: 'audio/L16;rate=24000',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      },
+    });
+    const speech = await client.generateSpeech({
+      text: 'ဖတ်ပါ',
+      voice: 'Kore',
+    });
+    assert.deepEqual([...speech.data], [1, 2, 3]);
+    assert.equal(speech.mimeType, 'audio/L16;rate=24000');
+    assert.match(JSON.stringify(body), /Kore/);
+    assert.match(JSON.stringify(body), /AUDIO/);
+  });
+
+  it('rejects a successful envelope that omits audio', async () => {
+    const client = createGeminiClient(env, {
+      fetch: async () => Response.json({ candidates: [] }),
+    });
+    await assert.rejects(
+      client.generateSpeech({ text: 'read' }),
+      (error: unknown) =>
+        error instanceof GeminiError && error.code === 'invalid_response',
+    );
+  });
+});

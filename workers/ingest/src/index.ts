@@ -5,7 +5,7 @@ import type { QueueJobPayload, RawNewsArticle } from '@toneyarthi/types';
 
 const service = 'ingest';
 
-interface Env {
+export interface Env {
   DB: D1Database;
   NEWS_QUEUE: Queue<QueueJobPayload>;
   ENVIRONMENT?: string;
@@ -13,7 +13,7 @@ interface Env {
   RELEASE?: string;
 }
 
-interface SourceRow {
+export interface SourceRow {
   id: string;
   slug: string;
   priority: number;
@@ -66,7 +66,7 @@ function logSummary(summary: IngestSummary | SourceSummary) {
   };
 }
 
-async function insertCandidate(
+export async function insertCandidate(
   env: Env,
   source: SourceRow,
   record: RawNewsArticle,

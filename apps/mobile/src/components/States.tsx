@@ -2,6 +2,8 @@ import { Pressable, View } from 'react-native';
 import { Typography } from './Typography';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { useTheme } from '../theme';
+import { screenStateContent } from './screenStateContent';
+export { screenStateContent, type ScreenStateKind } from './screenStateContent';
 
 function State({
   title,
@@ -70,7 +72,11 @@ export function ErrorState(props: {
   onAction?: () => void;
 }) {
   return (
-    <State error title={props.title ?? 'တစ်ခုခု မှားယွင်းနေပါသည်'} {...props} />
+    <State
+      error
+      title={props.title ?? screenStateContent('error').title}
+      {...props}
+    />
   );
 }
 export function EmptyState(props: {
@@ -79,7 +85,12 @@ export function EmptyState(props: {
   actionLabel?: string;
   onAction?: () => void;
 }) {
-  return <State title={props.title ?? 'မတွေ့ရှိသေးပါ'} {...props} />;
+  return (
+    <State
+      title={props.title ?? screenStateContent('empty').title}
+      {...props}
+    />
+  );
 }
 
 export function OfflineState(props: {
@@ -89,14 +100,18 @@ export function OfflineState(props: {
 }) {
   return (
     <State
-      title="အင်တာနက် မချိတ်ဆက်ထားပါ"
-      message={props.message ?? 'ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်ကြိုးစားပါ။'}
+      title={screenStateContent('offline').title}
+      message={props.message ?? screenStateContent('offline').message}
       {...props}
     />
   );
 }
 
-export function LoadingState({ label = 'စစ်ဆေးနေသည်…' }: { label?: string }) {
+export function LoadingState({
+  label = screenStateContent('loading').message,
+}: {
+  label?: string;
+}) {
   const t = useTheme();
   return (
     <View

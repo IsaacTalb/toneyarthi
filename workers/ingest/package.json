@@ -2,18 +2,21 @@
   "name": "@toneyarthi/ingest",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@toneyarthi/news-sources": "workspace:*",
     "@toneyarthi/shared": "workspace:*",
     "@toneyarthi/types": "workspace:*"
   },
   "scripts": {
+    "test": "node --experimental-strip-types --test test/**/*.test.ts",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "deploy:dry-run": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250830.0"
+    "@cloudflare/workers-types": "^4.20250830.0",
+    "miniflare": "5.20260828.0-alpha"
   }
 }
