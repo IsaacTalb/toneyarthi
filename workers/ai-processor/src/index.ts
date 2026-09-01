@@ -1,4 +1,5 @@
 import { createGeminiClient } from '@toneyarthi/ai';
+import { createLogger } from '@toneyarthi/shared/observability';
 import {
   buildBurmeseWritingPrompt,
   buildExtractionPrompt,
@@ -24,6 +25,8 @@ interface Env {
   GEMINI_TEXT_MODEL: string;
   GEMINI_TTS_MODEL?: string;
   PIPELINE_QUEUE: Queue;
+  ENVIRONMENT?: string;
+  RELEASE?: string;
 }
 
 interface StoryJobPayload {
@@ -133,7 +136,16 @@ async function processMessage(
     return;
   }
   const payload = message.body;
+  const logger = createLogger(
+    { service, environment: env.ENVIRONMENT, release: env.RELEASE },
+    {
+      correlationId: payload.jobId,
+      clusterId: payload.clusterId,
+      jobId: payload.jobId,
+    },
+  );
   const claim = await claimJob(env, payload);
+  logger.event('queue.attempt', 'info', { stage: payload.type, claim });
   if (claim === 'completed') {
     if (payload.type === 'extract') {
       try {
@@ -154,6 +166,7 @@ async function processMessage(
   try {
     if (payload.type === 'write') {
       await writeDraft(env, payload);
+      logger.event('ai.stage.completed', 'info', { stage: 'write' });
       message.ack();
       return;
     }
@@ -234,8 +247,13 @@ async function processMessage(
       return;
     }
     message.ack();
+    logger.event('ai.stage.completed', 'info', {
+      stage: 'extract',
+      articleCount: articles.length,
+    });
   } catch (error) {
     await failAi(env, payload.jobId, error);
+    logger.event('ai.stage.failed', 'error', { stage: payload.type, error });
     message.ack();
   }
 }

@@ -30,3 +30,5 @@ bucket_name = "tone-yar-thi-media"
 
 [vars]
 MEDIA_PUBLIC_BASE_URL = "https://pub-account-specific-id.r2.dev"
+ENVIRONMENT = "production"
+RELEASE = "local"

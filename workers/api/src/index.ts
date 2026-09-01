@@ -7,6 +7,7 @@ import {
   handleAdminSources,
 } from './admin.ts';
 import { handlePushTokenRequest, PushTokenError } from './push-tokens.ts';
+import { correlationId, createLogger } from '@toneyarthi/shared/observability';
 
 const service = 'api';
 const API_PREFIX = '/v1';
@@ -23,6 +24,8 @@ interface Env {
   ADMIN_API_TOKEN?: string;
   PIPELINE_QUEUE: Queue;
   TTS_QUEUE: Queue;
+  ENVIRONMENT?: string;
+  RELEASE?: string;
   RATE_LIMITER?: {
     limit(input: { key: string }): Promise<{ success: boolean }>;
   };
@@ -139,6 +142,7 @@ async function jsonResponse(
     'referrer-policy': 'no-referrer',
     'permissions-policy': 'camera=(), microphone=(), geolocation=()',
     'content-security-policy': "default-src 'none'; frame-ancestors 'none'",
+    'x-correlation-id': request.headers.get('x-correlation-id') ?? 'unknown',
   });
   const origin = allowedOrigin(request, env);
   if (origin) {
@@ -348,10 +352,18 @@ async function route(
 }
 
 export async function handleRequest(
-  request: Request,
+  incomingRequest: Request,
   env: Env,
 ): Promise<Response> {
+  const requestId = correlationId(incomingRequest);
+  const requestHeaders = new Headers(incomingRequest.headers);
+  requestHeaders.set('x-correlation-id', requestId);
+  const request = new Request(incomingRequest, { headers: requestHeaders });
   const url = new URL(request.url);
+  const logger = createLogger(
+    { service, environment: env.ENVIRONMENT, release: env.RELEASE },
+    { correlationId: requestId },
+  );
   try {
     if (!url.pathname.startsWith(`${API_PREFIX}/`))
       throw new HttpError(404, 'NOT_FOUND', 'Route not found');
@@ -394,6 +406,20 @@ export async function handleRequest(
       return jsonResponse(request, env, data, 200, 'no-store');
     }
     if (request.method === 'POST' || request.method === 'DELETE') {
+      if (
+        request.method === 'POST' &&
+        url.pathname === '/v1/telemetry/crashes'
+      ) {
+        const body = (await request.json()) as Record<string, unknown>;
+        logger.event('mobile.crash', 'error', {
+          platform: body.platform,
+          fatal: body.fatal,
+          errorName: body.errorName,
+          appRelease: body.release,
+          mobileEnvironment: body.environment,
+        });
+        return jsonResponse(request, env, { accepted: true }, 200, 'no-store');
+      }
       const pushResult = await handlePushTokenRequest(request, env, url);
       if (pushResult !== null)
         return jsonResponse(request, env, pushResult, 200, 'no-store');
@@ -439,13 +465,22 @@ export async function handleRequest(
       error instanceof PushTokenError
         ? error
         : new HttpError(500, 'INTERNAL_ERROR', 'An internal error occurred');
-    return jsonResponse(
+    logger.event('api.exception', safe.status >= 500 ? 'error' : 'warn', {
+      method: request.method,
+      route: url.pathname,
+      status: safe.status,
+      code: safe.code,
+      error: error instanceof HttpError ? undefined : error,
+    });
+    const response = await jsonResponse(
       request,
       env,
       { code: safe.code, message: safe.message },
       safe.status,
       'no-store',
     );
+    response.headers.set('x-correlation-id', requestId);
+    return response;
   }
 }
 

@@ -15,6 +15,9 @@ import { DownloadsProvider } from '../src/downloads';
 import { BookmarksProvider } from '../src/bookmarks';
 import { NotificationsProvider } from '../src/notifications';
 import { DataPolicyProvider, useDataPolicy } from '../src/dataPolicy';
+import { installCrashHandler } from '../src/observability/crashes';
+
+installCrashHandler();
 
 function QueryPolicy({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();

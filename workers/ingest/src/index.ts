@@ -1,5 +1,6 @@
 import { getNewsSourceAdapter } from '@toneyarthi/news-sources';
 import { validateAndNormalizeArticle } from '@toneyarthi/shared';
+import { createLogger } from '@toneyarthi/shared/observability';
 import type { QueueJobPayload, RawNewsArticle } from '@toneyarthi/types';
 
 const service = 'ingest';
@@ -9,6 +10,7 @@ interface Env {
   NEWS_QUEUE: Queue<QueueJobPayload>;
   ENVIRONMENT?: string;
   INGEST_TRIGGER_SECRET?: string;
+  RELEASE?: string;
 }
 
 interface SourceRow {
@@ -236,11 +238,14 @@ async function processSource(
       .run();
   }
   summary.durationMs = Date.now() - started;
-  console.log(
-    JSON.stringify({
-      event: 'ingest.source.completed',
-      ...logSummary(summary),
-    }),
+  createLogger({
+    service,
+    environment: env.ENVIRONMENT,
+    release: env.RELEASE,
+  }).event(
+    'ingest.source.completed',
+    summary.errors.length ? 'warn' : 'info',
+    logSummary(summary),
   );
   return summary;
 }
@@ -255,9 +260,11 @@ export async function runIngest(env: Env): Promise<IngestSummary> {
   for (const source of result.results)
     sources.push(await processSource(env, source));
   const summary = { startedAt, completedAt: new Date().toISOString(), sources };
-  console.log(
-    JSON.stringify({ event: 'ingest.run.completed', ...logSummary(summary) }),
-  );
+  createLogger({
+    service,
+    environment: env.ENVIRONMENT,
+    release: env.RELEASE,
+  }).event('ingest.run.completed', 'info', logSummary(summary));
   return summary;
 }
 

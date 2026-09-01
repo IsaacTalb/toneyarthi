@@ -5,6 +5,7 @@
   "dependencies": {
     "@toneyarthi/ai": "workspace:*",
     "@toneyarthi/prompts": "workspace:*",
+    "@toneyarthi/shared": "workspace:*",
     "@toneyarthi/types": "workspace:*"
   },
   "scripts": {
