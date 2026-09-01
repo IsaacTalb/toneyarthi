@@ -3,6 +3,7 @@ import {
   handleAdminAction,
   handleAdminReview,
   handleAdminProcessing,
+  handleAdminPlaylists,
   handleAdminSources,
 } from './admin.ts';
 import { handlePushTokenRequest, PushTokenError } from './push-tokens.ts';
@@ -345,6 +346,9 @@ export async function handleRequest(
       return jsonResponse(request, env, {}, 204, 'no-store');
     }
     if (request.method === 'PATCH') {
+      const playlistData = await handleAdminPlaylists(request, env, url);
+      if (playlistData !== null)
+        return jsonResponse(request, env, playlistData, 200, 'no-store');
       const sourceData = await handleAdminSources(request, env, url);
       if (sourceData !== null)
         return jsonResponse(request, env, sourceData, 200, 'no-store');
@@ -359,6 +363,9 @@ export async function handleRequest(
         return jsonResponse(request, env, pushResult, 200, 'no-store');
       if (request.method === 'DELETE')
         throw new HttpError(404, 'NOT_FOUND', 'Route not found');
+      const playlistData = await handleAdminPlaylists(request, env, url);
+      if (playlistData !== null)
+        return jsonResponse(request, env, playlistData, 200, 'no-store');
       const data = await handleAdminAction(request, env, url);
       if (data === null) {
         const processing = await handleAdminProcessing(request, env, url);
@@ -378,6 +385,9 @@ export async function handleRequest(
     const adminReview = await handleAdminReview(request, env, url);
     if (adminReview !== null)
       return jsonResponse(request, env, adminReview, 200, 'no-store');
+    const adminPlaylists = await handleAdminPlaylists(request, env, url);
+    if (adminPlaylists !== null)
+      return jsonResponse(request, env, adminPlaylists, 200, 'no-store');
     const adminProcessing = await handleAdminProcessing(request, env, url);
     if (adminProcessing !== null)
       return jsonResponse(request, env, adminProcessing, 200, 'no-store');

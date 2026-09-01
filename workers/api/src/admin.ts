@@ -2,6 +2,8 @@ import { sourceDefinitionRegistry } from '../../../packages/news-sources/src/def
 
 const ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{8,128}$/;
+const PLAYLIST_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SCHEDULE_TYPES = new Set(['manual', 'daily', 'weekly']);
 
 export type EditorialAction =
   | 'publish'
@@ -16,6 +18,224 @@ interface AdminEnv {
   ADMIN_API_TOKEN?: string;
   PIPELINE_QUEUE: Queue;
   TTS_QUEUE: Queue;
+}
+
+interface PlaylistInput {
+  titleMy?: unknown;
+  slug?: unknown;
+  description?: unknown;
+  imageUrl?: unknown;
+  isActive?: unknown;
+  scheduleType?: unknown;
+  articleIds?: unknown;
+}
+
+/** Playlist CRUD and eligible article discovery. Membership writes use one D1 transaction. */
+export async function handleAdminPlaylists(
+  request: Request,
+  env: AdminEnv,
+  url: URL,
+) {
+  if (!url.pathname.startsWith('/v1/admin/playlists')) return null;
+  authenticate(request, env);
+  if (url.pathname === '/v1/admin/playlists/articles') {
+    if (request.method !== 'GET' && request.method !== 'HEAD') return null;
+    const query = (url.searchParams.get('q') ?? '').trim().slice(0, 100);
+    const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+    const result = await env.DB.prepare(
+      `SELECT id,title,title_my titleMy,published_at publishedAt,audio_url audioUrl
+       FROM articles WHERE status='published' AND published_at IS NOT NULL
+       AND published_at<=datetime('now') AND audio_url IS NOT NULL
+       AND (?1='' OR title LIKE ?2 ESCAPE '\\' OR COALESCE(title_my,'') LIKE ?2 ESCAPE '\\')
+       ORDER BY published_at DESC,id DESC LIMIT 30`,
+    )
+      .bind(query, like)
+      .all<Record<string, unknown>>();
+    return { items: result.results };
+  }
+  const match = url.pathname.match(/^\/v1\/admin\/playlists(?:\/([^/]+))?$/);
+  if (!match) return null;
+  const encodedId = match[1];
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    if (!encodedId) {
+      const rows = await env.DB.prepare(
+        `SELECT p.id,p.slug,p.title_my titleMy,p.description,p.image_url imageUrl,
+        p.is_active isActive,p.schedule_type scheduleType,p.updated_at updatedAt,
+        COUNT(pa.article_id) articleCount FROM playlists p LEFT JOIN playlist_articles pa
+        ON pa.playlist_id=p.id GROUP BY p.id ORDER BY p.updated_at DESC`,
+      ).all<Record<string, unknown>>();
+      return {
+        items: rows.results.map((row) => ({
+          ...row,
+          isActive: Boolean(row.isActive),
+        })),
+      };
+    }
+    const id = decodeURIComponent(encodedId);
+    if (!ID.test(id))
+      throw new AdminError(400, 'INVALID_PLAYLIST_ID', 'Invalid playlist id');
+    const playlist = await env.DB.prepare(
+      `SELECT id,slug,title_my titleMy,description,image_url imageUrl,is_active isActive,
+       schedule_type scheduleType FROM playlists WHERE id=?1`,
+    )
+      .bind(id)
+      .first<Record<string, unknown>>();
+    if (!playlist)
+      throw new AdminError(404, 'PLAYLIST_NOT_FOUND', 'Playlist not found');
+    const members = await env.DB.prepare(
+      `SELECT a.id,a.title,a.title_my titleMy,a.published_at publishedAt,a.audio_url audioUrl
+       FROM playlist_articles pa JOIN articles a ON a.id=pa.article_id
+       WHERE pa.playlist_id=?1 ORDER BY pa.position`,
+    )
+      .bind(id)
+      .all<Record<string, unknown>>();
+    return {
+      ...playlist,
+      isActive: Boolean(playlist.isActive),
+      articles: members.results,
+    };
+  }
+  if (request.method !== 'POST' && request.method !== 'PATCH') return null;
+  if ((request.method === 'POST') === Boolean(encodedId)) return null;
+  const body = await readPlaylistInput(request);
+  const id = encodedId ? decodeURIComponent(encodedId) : crypto.randomUUID();
+  if (!ID.test(id))
+    throw new AdminError(400, 'INVALID_PLAYLIST_ID', 'Invalid playlist id');
+  const articleIds = body.articleIds as string[];
+  if (articleIds.length) {
+    const placeholders = articleIds.map((_, i) => `?${i + 1}`).join(',');
+    const eligible = await env.DB.prepare(
+      `SELECT id FROM articles WHERE id IN (${placeholders}) AND status='published'
+       AND published_at IS NOT NULL AND published_at<=datetime('now') AND audio_url IS NOT NULL`,
+    )
+      .bind(...articleIds)
+      .all<{ id: string }>();
+    if (eligible.results.length !== articleIds.length)
+      throw new AdminError(
+        422,
+        'INELIGIBLE_ARTICLE',
+        'Every article must be public and have audio',
+      );
+  }
+  const now = new Date().toISOString();
+  const statements =
+    request.method === 'POST'
+      ? [
+          env.DB.prepare(
+            `INSERT INTO playlists
+       (id,slug,title,title_my,description,image_url,status,published_at,is_active,schedule_type,updated_at)
+       VALUES (?1,?2,?3,?3,?4,?5,?6,?7,?8,?9,?10)`,
+          ).bind(
+            id,
+            body.slug,
+            body.titleMy,
+            body.description,
+            body.imageUrl,
+            body.isActive ? 'published' : 'draft',
+            body.isActive ? now : null,
+            body.isActive ? 1 : 0,
+            body.scheduleType,
+            now,
+          ),
+        ]
+      : [
+          env.DB.prepare(
+            `UPDATE playlists SET slug=?2,title=?3,title_my=?3,description=?4,
+       image_url=?5,status=?6,published_at=CASE WHEN ?6='published' THEN COALESCE(published_at,?7) ELSE NULL END,
+       is_active=?8,schedule_type=?9,updated_at=?7 WHERE id=?1`,
+          ).bind(
+            id,
+            body.slug,
+            body.titleMy,
+            body.description,
+            body.imageUrl,
+            body.isActive ? 'published' : 'draft',
+            now,
+            body.isActive ? 1 : 0,
+            body.scheduleType,
+          ),
+          env.DB.prepare(
+            'DELETE FROM playlist_articles WHERE playlist_id=?1',
+          ).bind(id),
+        ];
+  statements.push(
+    ...articleIds.map((articleId, position) =>
+      env.DB.prepare(
+        'INSERT INTO playlist_articles (playlist_id,article_id,position) VALUES (?1,?2,?3)',
+      ).bind(id, articleId, position),
+    ),
+  );
+  try {
+    await env.DB.batch(statements);
+  } catch (error) {
+    if (error instanceof Error && /unique/i.test(error.message))
+      throw new AdminError(
+        409,
+        'PLAYLIST_CONFLICT',
+        'The slug or membership already exists',
+      );
+    throw error;
+  }
+  return { id };
+}
+
+async function readPlaylistInput(request: Request) {
+  let value: PlaylistInput;
+  try {
+    value = (await request.json()) as PlaylistInput;
+  } catch {
+    throw new AdminError(400, 'INVALID_JSON', 'Expected a JSON body');
+  }
+  const titleMy = typeof value.titleMy === 'string' ? value.titleMy.trim() : '';
+  const slug = typeof value.slug === 'string' ? value.slug.trim() : '';
+  const description =
+    typeof value.description === 'string' ? value.description.trim() : '';
+  const imageUrl =
+    typeof value.imageUrl === 'string' ? value.imageUrl.trim() : '';
+  const scheduleType =
+    typeof value.scheduleType === 'string' ? value.scheduleType : '';
+  if (!titleMy || titleMy.length > 200)
+    throw new AdminError(
+      400,
+      'INVALID_NAME',
+      'Burmese name is required (maximum 200 characters)',
+    );
+  if (!PLAYLIST_SLUG.test(slug) || slug.length > 100)
+    throw new AdminError(
+      400,
+      'INVALID_SLUG',
+      'Use a lowercase, hyphenated slug',
+    );
+  if (description.length > 2000)
+    throw new AdminError(400, 'INVALID_DESCRIPTION', 'Description is too long');
+  if (imageUrl && (!/^https:\/\//.test(imageUrl) || imageUrl.length > 2048))
+    throw new AdminError(400, 'INVALID_IMAGE', 'Image must be an HTTPS URL');
+  if (!SCHEDULE_TYPES.has(scheduleType))
+    throw new AdminError(400, 'INVALID_SCHEDULE', 'Invalid schedule type');
+  if (
+    !Array.isArray(value.articleIds) ||
+    value.articleIds.some((id) => typeof id !== 'string' || !ID.test(id))
+  )
+    throw new AdminError(
+      400,
+      'INVALID_ARTICLES',
+      'articleIds must contain valid ids',
+    );
+  if (new Set(value.articleIds).size !== value.articleIds.length)
+    throw new AdminError(
+      409,
+      'DUPLICATE_ARTICLE',
+      'An article can only appear once',
+    );
+  return {
+    titleMy,
+    slug,
+    description: description || null,
+    imageUrl: imageUrl || null,
+    isActive: value.isActive === true,
+    scheduleType,
+    articleIds: value.articleIds,
+  };
 }
 
 const JOB_STATUSES = [
