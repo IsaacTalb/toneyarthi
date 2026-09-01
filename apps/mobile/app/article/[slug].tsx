@@ -25,6 +25,7 @@ import { useTheme } from '../../src/theme';
 import { usePlayback } from '../../src/playback';
 import { useDownloads } from '../../src/downloads';
 import { useBookmarks } from '../../src/bookmarks';
+import { usePolicyImageUrl } from '../../src/dataPolicy';
 
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat('my-MM', {
@@ -129,6 +130,7 @@ export default function ArticleScreen() {
     enabled: Boolean(categorySlug),
   });
   const isSaved = bookmarks.contains(article.data?.id ?? articleSlug);
+  const policyImageUrl = usePolicyImageUrl(article.data?.imageUrl);
 
   const paragraphs = useMemo(
     () =>
@@ -290,9 +292,9 @@ export default function ArticleScreen() {
                 {formatDate(data.publishedAt)}
               </Typography>
             </View>
-            {data.imageUrl ? (
+            {policyImageUrl ? (
               <Image
-                source={{ uri: data.imageUrl, cache: 'force-cache' }}
+                source={{ uri: policyImageUrl, cache: 'force-cache' }}
                 accessibilityLabel={`${title} သတင်းဓာတ်ပုံ`}
                 resizeMode="cover"
                 resizeMethod="resize"

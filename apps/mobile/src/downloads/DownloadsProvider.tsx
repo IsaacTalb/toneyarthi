@@ -8,16 +8,18 @@ import {
 } from 'react';
 import { downloadStorage } from './native';
 import type { DownloadRecord, DownloadRequest } from './types';
+import { useDataPolicy } from '../dataPolicy';
 
 type DownloadsContextValue = {
   records: DownloadRecord[];
   ready: boolean;
-  download(request: DownloadRequest): Promise<void>;
+  download(request: DownloadRequest, automatic?: boolean): Promise<void>;
   remove(id: string): Promise<void>;
 };
 const Context = createContext<DownloadsContextValue | null>(null);
 
 export function DownloadsProvider({ children }: PropsWithChildren) {
+  const { policy } = useDataPolicy();
   const [records, setRecords] = useState<DownloadRecord[]>([]);
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -30,7 +32,8 @@ export function DownloadsProvider({ children }: PropsWithChildren) {
     () => ({
       records,
       ready,
-      async download(request) {
+      async download(request, automatic = false) {
+        if (automatic && !policy.downloads.automaticAudio) return;
         await downloadStorage.download(request);
         setRecords(downloadStorage.list());
       },
@@ -39,7 +42,7 @@ export function DownloadsProvider({ children }: PropsWithChildren) {
         setRecords(downloadStorage.list());
       },
     }),
-    [ready, records],
+    [policy.downloads.automaticAudio, ready, records],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlaybackController, usePlaybackSelector } from '../playback';
 import { useTheme } from '../theme';
 import { Typography } from './Typography';
+import { usePolicyImageUrl } from '../dataPolicy';
 
 export const MINI_PLAYER_HEIGHT = 68;
 
@@ -72,6 +73,7 @@ export function PersistentPlayerHost() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const t = useTheme();
+  const artworkUrl = usePolicyImageUrl(presentedItem?.artworkUri);
   const onTabs = segments[0] === '(tabs)';
   const onFullPlayer = segments[0] === 'player';
 
@@ -127,9 +129,9 @@ export function PersistentPlayerHost() {
           { backgroundColor: t.colors.surface, borderColor: t.colors.border },
         ]}
       >
-        {presentedItem.artworkUri ? (
+        {artworkUrl ? (
           <Image
-            source={{ uri: presentedItem.artworkUri }}
+            source={{ uri: artworkUrl }}
             accessibilityIgnoresInvertColors
             style={styles.artwork}
           />
