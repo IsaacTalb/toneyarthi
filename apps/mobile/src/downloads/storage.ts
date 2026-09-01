@@ -49,6 +49,7 @@ export class DownloadStorage {
   }
 
   async download(request: DownloadRequest): Promise<DownloadRecord> {
+    const previousRecords = this.records;
     const temporaryUri = this.files.temporaryUri(request.id);
     const finalUri = this.files.finalUri(request.id);
     await safeRemove(this.files, temporaryUri);
@@ -73,13 +74,15 @@ export class DownloadStorage {
         size: result.size,
         downloadedAt: new Date().toISOString(),
       };
-      this.records = [
+      const nextRecords = [
         record,
         ...this.records.filter((item) => item.id !== request.id),
       ];
-      await this.metadata.save(this.records);
+      await this.metadata.save(nextRecords);
+      this.records = nextRecords;
       return record;
     } catch (error) {
+      this.records = previousRecords;
       await safeRemove(this.files, temporaryUri);
       throw error;
     }

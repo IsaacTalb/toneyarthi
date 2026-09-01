@@ -14,6 +14,7 @@
     "test": "node --experimental-strip-types --test test/**/*.test.ts"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250830.0"
+    "@cloudflare/workers-types": "^4.20250830.0",
+    "miniflare": "5.20260828.0-alpha"
   }
 }

@@ -229,3 +229,43 @@ test('an ended item advances automatically and skips an unavailable item', async
   await Promise.resolve();
   assert.equal(controller.getSnapshot().item?.id, 'three');
 });
+
+test('normalizes queue input and clamps an invalid starting index', async () => {
+  const driver = new Driver();
+  const controller = new PlaybackController(driver);
+  const loading = controller.replaceQueue(
+    [item('one'), item('one'), { ...item('bad'), uri: '' }, item('two')],
+    99,
+    false,
+  );
+  driver.loads[0]!.resolve({ duration: 30 });
+  await loading;
+  assert.deepEqual(
+    controller.getSnapshot().queue.map(({ id }) => id),
+    ['one', 'two'],
+  );
+  assert.equal(controller.getSnapshot().currentIndex, 1);
+  assert.equal(controller.getSnapshot().item?.id, 'two');
+});
+
+test('surfaces driver load errors and continues to the next queue item', async () => {
+  class RejectingDriver extends Driver {
+    override load(value: PlaybackItem, generation: number) {
+      if (value.id === 'broken')
+        return Promise.reject(new Error('decode failed'));
+      return super.load(value, generation);
+    }
+  }
+  const driver = new RejectingDriver();
+  const controller = new PlaybackController(driver);
+  const replacing = controller.replaceQueue(
+    [item('broken'), item('working')],
+    0,
+    false,
+  );
+  await Promise.resolve();
+  driver.loads[0]!.resolve({ duration: 20 });
+  await replacing;
+  assert.equal(controller.getSnapshot().item?.id, 'working');
+  assert.equal(controller.getSnapshot().phase, 'ready');
+});

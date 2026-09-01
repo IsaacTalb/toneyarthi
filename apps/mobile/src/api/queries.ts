@@ -4,6 +4,11 @@ import {
   queryOptions,
 } from '@tanstack/react-query';
 import { createApiClient, type PaginationInput } from './client';
+import {
+  isSearchEnabled,
+  nextPageParam,
+  normalizedSearchTerm,
+} from './queryHelpers';
 
 export const queryKeys = {
   feeds: ['feeds'] as const,
@@ -16,9 +21,9 @@ export const queryKeys = {
   categories: ['categories'] as const,
   audio: (input: PaginationInput = {}) => ['audio', input] as const,
   search: (term: string, input: PaginationInput = {}) =>
-    ['search', term.trim(), input] as const,
+    ['search', normalizedSearchTerm(term), input] as const,
   searchInfinite: (term: string, limit: number) =>
-    ['search', term.trim(), 'infinite', { limit }] as const,
+    ['search', normalizedSearchTerm(term), 'infinite', { limit }] as const,
   exploreFeed: (slug: string | undefined, limit: number) =>
     ['feeds', 'explore', slug ?? 'latest', { limit }] as const,
   playlists: (input: PaginationInput = {}) =>
@@ -41,12 +46,7 @@ export const queries = {
         slug
           ? api.categoryFeed(slug, { limit, ...pageParam }, signal)
           : api.feed({ limit, ...pageParam }, signal),
-      getNextPageParam: (lastPage) => {
-        if (!lastPage.hasMore) return undefined;
-        return lastPage.nextCursor
-          ? { cursor: lastPage.nextCursor }
-          : { page: lastPage.page + 1 };
-      },
+      getNextPageParam: nextPageParam,
     }),
   homeFeed: (limit = 12) =>
     infiniteQueryOptions({
@@ -54,12 +54,7 @@ export const queries = {
       initialPageParam: { page: 1 } as PaginationInput,
       queryFn: ({ pageParam, signal }) =>
         api.feed({ limit, ...pageParam }, signal),
-      getNextPageParam: (lastPage) => {
-        if (!lastPage.hasMore) return undefined;
-        return lastPage.nextCursor
-          ? { cursor: lastPage.nextCursor }
-          : { page: lastPage.page + 1 };
-      },
+      getNextPageParam: nextPageParam,
     }),
   feed: (input: PaginationInput = {}) =>
     queryOptions({
@@ -93,7 +88,7 @@ export const queries = {
     queryOptions({
       queryKey: queryKeys.search(term, input),
       queryFn: ({ signal }) => api.search(term, input, signal),
-      enabled: term.trim().length >= 2,
+      enabled: isSearchEnabled(term),
       ...paged,
     }),
   searchInfinite: (term: string, limit = 12) =>
@@ -102,13 +97,8 @@ export const queries = {
       initialPageParam: { page: 1 } as PaginationInput,
       queryFn: ({ pageParam, signal }) =>
         api.search(term, { limit, ...pageParam }, signal),
-      enabled: term.length >= 2 && term.length <= 100,
-      getNextPageParam: (lastPage) => {
-        if (!lastPage.hasMore) return undefined;
-        return lastPage.nextCursor
-          ? { cursor: lastPage.nextCursor }
-          : { page: lastPage.page + 1 };
-      },
+      enabled: isSearchEnabled(term),
+      getNextPageParam: nextPageParam,
     }),
   playlists: (input: PaginationInput = {}) =>
     queryOptions({
