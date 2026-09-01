@@ -4,6 +4,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "credentialsSource": "remote",
       "environment": "development",
       "env": {
         "EXPO_PUBLIC_APP_ENVIRONMENT": "development",
@@ -11,18 +12,23 @@
         "EXPO_PUBLIC_SITE_URL": "https://dev.toneyarthi.com"
       }
     },
-    "staging": {
+    "preview": {
       "distribution": "internal",
+      "credentialsSource": "remote",
       "environment": "preview",
+      "channel": "preview",
+      "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_APP_ENVIRONMENT": "staging",
+        "EXPO_PUBLIC_APP_ENVIRONMENT": "preview",
         "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.toneyarthi.com",
         "EXPO_PUBLIC_SITE_URL": "https://staging.toneyarthi.com"
       }
     },
     "production": {
       "autoIncrement": true,
+      "credentialsSource": "remote",
       "environment": "production",
+      "channel": "production",
       "env": {
         "EXPO_PUBLIC_APP_ENVIRONMENT": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://api.toneyarthi.com",
@@ -30,5 +36,9 @@
       }
     }
   },
-  "submit": { "production": {} }
+  "submit": {
+    "production": {
+      "ios": {}
+    }
+  }
 }

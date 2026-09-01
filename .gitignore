@@ -9,6 +9,9 @@ coverage/
 web-build/
 *.tsbuildinfo
 
+# Expo requires raster icons, but the generated PNGs are build artifacts.
+apps/mobile/assets/*.png
+
 # Local configuration
 .env
 .env.*
