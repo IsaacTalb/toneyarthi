@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, FlatList, Pressable, View } from 'react-native';
-import { Container, Typography } from '../src/components';
+import {
+  Container,
+  EmptyState,
+  LoadingState,
+  Typography,
+} from '../src/components';
 import { useDownloads } from '../src/downloads';
+import { usePlayback } from '../src/playback';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 
 const sizeLabel = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`;
@@ -9,6 +16,8 @@ const sizeLabel = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`;
 export default function DownloadsScreen() {
   const t = useTheme();
   const { records, ready, remove } = useDownloads();
+  const playback = usePlayback();
+  const router = useRouter();
   return (
     <Container edges={['left', 'right']}>
       <FlatList
@@ -29,33 +38,27 @@ export default function DownloadsScreen() {
           ) : null
         }
         ListEmptyComponent={
-          <View
-            style={{
-              alignItems: 'center',
-              gap: t.spacing.sm,
-              paddingTop: t.spacing.xxl,
-            }}
-          >
-            <Ionicons
-              name="cloud-download-outline"
-              size={48}
-              color={t.colors.brand}
+          ready ? (
+            <EmptyState
+              title="ဒေါင်းလုဒ် မရှိသေးပါ"
+              message="သတင်းစာမျက်နှာမှ အသံဖိုင်များကို သိမ်းနိုင်ပါသည်။"
             />
-            <Typography variant="heading">
-              {ready ? 'ဒေါင်းလုဒ် မရှိသေးပါ' : 'စစ်ဆေးနေသည်…'}
-            </Typography>
-            {ready ? (
-              <Typography
-                color={t.colors.inkMuted}
-                style={{ textAlign: 'center' }}
-              >
-                သတင်းစာမျက်နှာမှ အသံဖိုင်များကို သိမ်းနိုင်ပါသည်။
-              </Typography>
-            ) : null}
-          </View>
+          ) : (
+            <LoadingState label="ဒေါင်းလုဒ်များကို စစ်ဆေးနေသည်" />
+          )
         }
         renderItem={({ item }) => (
-          <View
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title} ကို အော့ဖ်လိုင်း နားထောင်မည်`}
+            onPress={() => {
+              void playback.load({
+                id: item.id,
+                uri: item.localUri,
+                title: item.title,
+              });
+              router.push('/player');
+            }}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -78,7 +81,8 @@ export default function DownloadsScreen() {
               accessibilityRole="button"
               accessibilityLabel="ဒေါင်းလုဒ် ဖျက်မည်"
               hitSlop={10}
-              onPress={() =>
+              onPress={(event) => {
+                event.stopPropagation();
                 Alert.alert('ဒေါင်းလုဒ် ဖျက်မည်လား', item.title, [
                   { text: 'မဖျက်ပါ', style: 'cancel' },
                   {
@@ -86,8 +90,8 @@ export default function DownloadsScreen() {
                     style: 'destructive',
                     onPress: () => void remove(item.id),
                   },
-                ])
-              }
+                ]);
+              }}
             >
               <Ionicons
                 name="trash-outline"
@@ -95,7 +99,7 @@ export default function DownloadsScreen() {
                 color={t.colors.danger}
               />
             </Pressable>
-          </View>
+          </Pressable>
         )}
       />
     </Container>

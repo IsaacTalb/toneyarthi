@@ -1,4 +1,4 @@
-import { View, type ViewProps } from 'react-native';
+import { View, useWindowDimensions, type ViewProps } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 
@@ -9,6 +9,8 @@ export function Container({
   ...props
 }: ViewProps & { edges?: Edge[] }) {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const gutter = width >= 768 ? theme.spacing.lg : theme.spacing.md;
   return (
     <SafeAreaView
       edges={edges}
@@ -19,10 +21,10 @@ export function Container({
         style={[
           {
             width: '100%',
-            maxWidth: 680,
+            maxWidth: 760,
             alignSelf: 'center',
             flex: 1,
-            paddingHorizontal: theme.spacing.md,
+            paddingHorizontal: gutter,
           },
           style,
         ]}

@@ -2,7 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  TextInput,
+  View,
+} from 'react-native';
 import type { ArticleSummary } from '../src/api/client';
 import { queries } from '../src/api/queries';
 import {
@@ -90,165 +97,177 @@ export default function SearchScreen() {
 
   return (
     <Container edges={['left', 'right', 'bottom']}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderWidth: 1,
-          borderColor: t.colors.border,
-          borderRadius: t.radius.md,
-          backgroundColor: t.colors.surface,
-          paddingHorizontal: t.spacing.sm,
-        }}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
+        style={{ flex: 1 }}
       >
-        <Ionicons name="search-outline" size={20} color={t.colors.inkMuted} />
-        <TextInput
-          accessibilityLabel="Search news"
-          value={input}
-          onChangeText={setInput}
-          autoFocus
-          maxLength={MAX_SEARCH_LENGTH + 20}
-          placeholder="Search news"
-          placeholderTextColor={t.colors.inkMuted}
-          returnKeyType="search"
-          onSubmitEditing={() => {
-            clearTimeout(timer.current);
-            setTerm(normalizeSearch(input));
-          }}
+        <View
           style={{
-            flex: 1,
-            minHeight: 48,
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: t.colors.border,
+            borderRadius: t.radius.md,
+            backgroundColor: t.colors.surface,
             paddingHorizontal: t.spacing.sm,
-            color: t.colors.ink,
-            fontFamily: t.typography.fontFamily,
-            fontSize: 16,
           }}
-        />
-        {input ? (
-          <Pressable
-            accessibilityLabel="Clear search"
-            onPress={() => {
-              setInput('');
-              setTerm('');
+        >
+          <Ionicons name="search-outline" size={20} color={t.colors.inkMuted} />
+          <TextInput
+            accessibilityLabel="Search news"
+            value={input}
+            onChangeText={setInput}
+            autoFocus
+            maxLength={MAX_SEARCH_LENGTH + 20}
+            placeholder="Search news"
+            placeholderTextColor={t.colors.inkMuted}
+            returnKeyType="search"
+            onSubmitEditing={() => {
+              clearTimeout(timer.current);
+              setTerm(normalizeSearch(input));
             }}
-            hitSlop={8}
-          >
-            <Ionicons name="close-circle" size={20} color={t.colors.inkMuted} />
-          </Pressable>
-        ) : null}
-      </View>
-
-      {!term && recent.length ? (
-        <View style={{ marginTop: t.spacing.md }}>
-          <SectionHeader
-            title="Recent searches"
-            action={
-              <Pressable
-                onPress={() => {
-                  setRecent([]);
-                  void clearRecentSearches();
-                }}
-              >
-                <Typography variant="label" color={t.colors.brand}>
-                  Clear all
-                </Typography>
-              </Pressable>
-            }
+            style={{
+              flex: 1,
+              minHeight: 48,
+              paddingHorizontal: t.spacing.sm,
+              color: t.colors.ink,
+              fontFamily: t.typography.fontFamily,
+              fontSize: 16,
+            }}
           />
-          {recent.map((item) => (
+          {input ? (
             <Pressable
-              key={item}
-              onPress={() => chooseRecent(item)}
-              style={{ minHeight: 44, justifyContent: 'center' }}
+              accessibilityLabel="Clear search"
+              onPress={() => {
+                setInput('');
+                setTerm('');
+              }}
+              hitSlop={8}
             >
-              <Typography>{item}</Typography>
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={t.colors.inkMuted}
+              />
             </Pressable>
-          ))}
+          ) : null}
         </View>
-      ) : null}
 
-      {tooShort ? (
-        <Typography
-          color={t.colors.inkMuted}
-          style={{ marginTop: t.spacing.md }}
-        >
-          Enter at least {MIN_SEARCH_LENGTH} characters.
-        </Typography>
-      ) : null}
-      {term.length > MAX_SEARCH_LENGTH ? (
-        <Typography
-          accessibilityRole="alert"
-          color={t.colors.danger}
-          style={{ marginTop: t.spacing.md }}
-        >
-          Searches can contain at most {MAX_SEARCH_LENGTH} characters.
-        </Typography>
-      ) : null}
-      {valid && search.isPending ? (
-        <View style={{ gap: t.spacing.md, marginTop: t.spacing.lg }}>
-          <LoadingSkeleton height={110} />
-          <LoadingSkeleton height={110} />
-        </View>
-      ) : null}
-      {valid && search.isError && !search.data ? (
-        <ErrorState
-          message="Search is unavailable. Check your connection and try again."
-          actionLabel="Try again"
-          onAction={() => void search.refetch()}
-        />
-      ) : null}
-      {valid && !search.isPending && (!search.isError || search.data) ? (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          style={{ marginTop: t.spacing.sm }}
-          contentContainerStyle={{
-            gap: t.spacing.md,
-            paddingBottom: t.spacing.xxl,
-          }}
-          ListHeaderComponent={
-            search.isError && search.data ? (
-              <Typography
-                accessibilityRole="alert"
-                variant="caption"
-                color={t.colors.danger}
+        {!term && recent.length ? (
+          <View style={{ marginTop: t.spacing.md }}>
+            <SectionHeader
+              title="Recent searches"
+              action={
+                <Pressable
+                  onPress={() => {
+                    setRecent([]);
+                    void clearRecentSearches();
+                  }}
+                >
+                  <Typography variant="label" color={t.colors.brand}>
+                    Clear all
+                  </Typography>
+                </Pressable>
+              }
+            />
+            {recent.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => chooseRecent(item)}
+                style={{ minHeight: 44, justifyContent: 'center' }}
               >
-                Offline — showing cached results.
-              </Typography>
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <ArticleCard
-              title={item.titleMy?.trim() || item.title}
-              summary={item.summaryMy?.trim() || item.summary}
-              category={
-                item.categoryNameMy ||
-                item.categoryName ||
-                item.categorySlug ||
-                'News'
-              }
-              onPress={() =>
-                router.push({
-                  pathname: '/article/[slug]',
-                  params: { slug: item.id, entryPoint: 'search' },
-                })
-              }
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyState
-              title="No results"
-              message={`No stories matched “${term}”.`}
-            />
-          }
-          ListFooterComponent={
-            search.isFetchingNextPage ? <LoadingSkeleton height={100} /> : null
-          }
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.4}
-          keyboardShouldPersistTaps="handled"
-        />
-      ) : null}
+                <Typography>{item}</Typography>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {tooShort ? (
+          <Typography
+            color={t.colors.inkMuted}
+            style={{ marginTop: t.spacing.md }}
+          >
+            Enter at least {MIN_SEARCH_LENGTH} characters.
+          </Typography>
+        ) : null}
+        {term.length > MAX_SEARCH_LENGTH ? (
+          <Typography
+            accessibilityRole="alert"
+            color={t.colors.danger}
+            style={{ marginTop: t.spacing.md }}
+          >
+            Searches can contain at most {MAX_SEARCH_LENGTH} characters.
+          </Typography>
+        ) : null}
+        {valid && search.isPending ? (
+          <View style={{ gap: t.spacing.md, marginTop: t.spacing.lg }}>
+            <LoadingSkeleton height={110} />
+            <LoadingSkeleton height={110} />
+          </View>
+        ) : null}
+        {valid && search.isError && !search.data ? (
+          <ErrorState
+            message="Search is unavailable. Check your connection and try again."
+            actionLabel="Try again"
+            onAction={() => void search.refetch()}
+          />
+        ) : null}
+        {valid && !search.isPending && (!search.isError || search.data) ? (
+          <FlatList
+            data={results}
+            keyExtractor={(item) => item.id}
+            style={{ marginTop: t.spacing.sm }}
+            contentContainerStyle={{
+              gap: t.spacing.md,
+              paddingBottom: t.spacing.xxl,
+            }}
+            ListHeaderComponent={
+              search.isError && search.data ? (
+                <Typography
+                  accessibilityRole="alert"
+                  variant="caption"
+                  color={t.colors.danger}
+                >
+                  Offline — showing cached results.
+                </Typography>
+              ) : null
+            }
+            renderItem={({ item }) => (
+              <ArticleCard
+                title={item.titleMy?.trim() || item.title}
+                summary={item.summaryMy?.trim() || item.summary}
+                category={
+                  item.categoryNameMy ||
+                  item.categoryName ||
+                  item.categorySlug ||
+                  'News'
+                }
+                onPress={() =>
+                  router.push({
+                    pathname: '/article/[slug]',
+                    params: { slug: item.id, entryPoint: 'search' },
+                  })
+                }
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                title="No results"
+                message={`No stories matched “${term}”.`}
+              />
+            }
+            ListFooterComponent={
+              search.isFetchingNextPage ? (
+                <LoadingSkeleton height={100} />
+              ) : null
+            }
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.4}
+            keyboardShouldPersistTaps="handled"
+          />
+        ) : null}
+      </KeyboardAvoidingView>
     </Container>
   );
 }

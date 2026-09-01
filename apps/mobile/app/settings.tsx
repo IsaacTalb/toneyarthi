@@ -1,4 +1,4 @@
-import { Pressable, Switch, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Container, Typography } from '../src/components';
 import { useTheme } from '../src/theme';
 import { useNotifications } from '../src/notifications';
@@ -10,7 +10,13 @@ export default function SettingsScreen() {
   const dataPolicy = useDataPolicy();
   return (
     <Container edges={['left', 'right']} style={{ paddingTop: t.spacing.lg }}>
-      <View style={{ gap: t.spacing.md }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          gap: t.spacing.md,
+          paddingBottom: t.spacing.xxl,
+        }}
+      >
         <View
           style={{
             padding: t.spacing.md,
@@ -132,7 +138,7 @@ export default function SettingsScreen() {
             အကြောင်းအရာများသာ ပို့ပါမည်။
           </Typography>
         </View>
-      </View>
+      </ScrollView>
     </Container>
   );
 }

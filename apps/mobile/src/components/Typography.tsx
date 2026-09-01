@@ -14,6 +14,10 @@ export function Typography({
   return (
     <Text
       allowFontScaling
+      // `simple` delegates breaks to the glyph run and is more reliable for
+      // Myanmar text than Android's Latin-oriented balanced strategies.
+      textBreakStrategy="simple"
+      lineBreakStrategyIOS="standard"
       {...props}
       style={[
         {
