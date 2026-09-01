@@ -24,4 +24,10 @@ export default tseslint.config(
     },
     rules: reactHooks.configs.recommended.rules,
   },
+  {
+    files: ['apps/mobile/**/*.js', 'apps/mobile/**/*.mjs'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 );

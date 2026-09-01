@@ -25,10 +25,10 @@ Run `python3 scripts/benchmark-list-queries.py` from the repository root. It
 uses SQLite (the D1 query engine) with 50,000 representative rows and reports
 the median of 30 warm runs. On the 2026-09-01 development container:
 
-| list query | before | after | result |
-| --- | ---: | ---: | ---: |
-| public audio | 0.324 ms | 0.017 ms | 94.7% faster |
-| category feed | 0.321 ms | 0.017 ms | 94.8% faster |
+| list query            |    before |    after |       result |
+| --------------------- | --------: | -------: | -----------: |
+| public audio          |  0.324 ms | 0.017 ms | 94.7% faster |
+| category feed         |  0.321 ms | 0.017 ms | 94.8% faster |
 | admin processing jobs | 27.011 ms | 0.088 ms | 99.7% faster |
 
 Before, all three plans created a temporary B-tree for ordering (and processing
