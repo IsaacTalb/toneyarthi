@@ -2,9 +2,9 @@
 
 ## GitHub environments and controls
 
-Create `preview`, `staging`, and `production` environments in **Settings → Environments**. Restrict production to the `main` branch and configure at least one required reviewer; this reviewer gate is the mandatory production approval. Do not grant self-approval. Preview and staging may use separate reviewer/branch rules. The deployment workflow automatically deploys `main` to staging and exposes all three targets through manual dispatch. Its concurrency group serializes deployments to each target, and each Worker is an independent job so a failure cannot silently skip another service.
+Create `staging` and `production` environments in **Settings → Environments**. Restrict production to the `main` branch and configure at least one required reviewer; this reviewer gate is the mandatory production approval. Do not grant self-approval. Staging may use separate reviewer/branch rules. The deployment workflow automatically deploys `main` to staging and exposes both targets through manual dispatch. Its concurrency group serializes deployments to each target, and each Worker is an independent job so a failure cannot silently skip another service.
 
-Cloudflare Worker configuration must define `[env.preview]` and `[env.staging]` resources in every `workers/*/wrangler.toml` before those targets are enabled. Give them distinct Worker names and distinct D1, R2, and Queue resources. Production uses the top-level configuration. Never point a non-production binding at production data.
+Cloudflare Worker configuration must define `[env.development]`, `[env.staging]`, and `[env.production]` resources in every `workers/*/wrangler.toml` before those targets are enabled. Give them distinct Worker names and distinct D1, R2, and Queue resources. Production also uses its named environment; the top-level configuration has no bindings. Never point a non-production binding at production data.
 
 ## Environment secrets
 
@@ -36,7 +36,7 @@ CI's current Expo check is intentionally credential-free: it resolves the public
 
 ## Operational checklist
 
-1. Require the `CI / Lint, type-check, and test` and `CI / Expo and Worker build validation` checks on `main`.
-2. Define isolated preview/staging Wrangler environments and run a manual preview deployment.
-3. Verify Cloudflare resources, logs, and alarms before promoting the same commit.
-4. Dispatch production, have a different reviewer approve the protected environment, and review every independent Worker job plus the notification result.
+1. Require the CI quality and build-validation checks on `main`.
+2. Provision the isolated resources and secrets in [`environments.md`](environments.md).
+3. Run and verify staging before promoting the exact commit.
+4. Dispatch production, obtain independent approval, and review every Worker job.

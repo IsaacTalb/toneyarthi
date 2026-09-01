@@ -1,21 +1,34 @@
 {
-  "cli": {
-    "version": ">= 16.0.0",
-    "appVersionSource": "remote"
-  },
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_APP_ENVIRONMENT": "development",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-dev.toneyarthi.com",
+        "EXPO_PUBLIC_SITE_URL": "https://dev.toneyarthi.com"
+      }
     },
-    "preview": {
-      "distribution": "internal"
+    "staging": {
+      "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_APP_ENVIRONMENT": "staging",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.toneyarthi.com",
+        "EXPO_PUBLIC_SITE_URL": "https://staging.toneyarthi.com"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_APP_ENVIRONMENT": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.toneyarthi.com",
+        "EXPO_PUBLIC_SITE_URL": "https://toneyarthi.com"
+      }
     }
   },
-  "submit": {
-    "production": {}
-  }
+  "submit": { "production": {} }
 }

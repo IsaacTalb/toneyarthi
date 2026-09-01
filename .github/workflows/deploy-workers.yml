@@ -9,8 +9,8 @@ on:
         description: Protected GitHub environment to deploy
         required: true
         type: choice
-        default: preview
-        options: [preview, staging, production]
+        default: staging
+        options: [staging, production]
 
 permissions:
   contents: read
@@ -41,9 +41,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          args=()
-          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
-          pnpm --filter '@toneyarthi/api' exec wrangler deploy "${args[@]}"
+          pnpm --filter '@toneyarthi/api' exec wrangler deploy --env "$DEPLOY_TARGET"
 
   ingest:
     name: Deploy ingest
@@ -63,9 +61,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          args=()
-          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
-          pnpm --filter '@toneyarthi/ingest' exec wrangler deploy "${args[@]}"
+          pnpm --filter '@toneyarthi/ingest' exec wrangler deploy --env "$DEPLOY_TARGET"
 
   ai_processor:
     name: Deploy ai processor
@@ -85,9 +81,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          args=()
-          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
-          pnpm --filter '@toneyarthi/ai-processor' exec wrangler deploy "${args[@]}"
+          pnpm --filter '@toneyarthi/ai-processor' exec wrangler deploy --env "$DEPLOY_TARGET"
 
   audio_processor:
     name: Deploy audio processor
@@ -107,9 +101,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          args=()
-          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
-          pnpm --filter '@toneyarthi/audio-processor' exec wrangler deploy "${args[@]}"
+          pnpm --filter '@toneyarthi/audio-processor' exec wrangler deploy --env "$DEPLOY_TARGET"
 
   briefings:
     name: Deploy briefings
@@ -129,9 +121,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          args=()
-          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
-          pnpm --filter '@toneyarthi/briefings' exec wrangler deploy "${args[@]}"
+          pnpm --filter '@toneyarthi/briefings' exec wrangler deploy --env "$DEPLOY_TARGET"
 
   notify:
     name: Notify deployment result

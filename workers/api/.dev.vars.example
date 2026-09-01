@@ -1,0 +1,2 @@
+# Copy to .dev.vars; local-only and never shared with staging/production.
+ADMIN_API_TOKEN=replace-with-local-admin-token
