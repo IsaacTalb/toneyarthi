@@ -1,0 +1,152 @@
+name: Deploy Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Protected GitHub environment to deploy
+        required: true
+        type: choice
+        default: preview
+        options: [preview, staging, production]
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_TARGET: ${{ inputs.target || 'staging' }}
+
+concurrency:
+  group: workers-${{ inputs.target || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  api:
+    name: Deploy api
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ${{ inputs.target || 'staging' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@f2b2b233b538f500472c7274c7012f57857d8ce0 # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          args=()
+          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
+          pnpm --filter '@toneyarthi/api' exec wrangler deploy "${args[@]}"
+
+  ingest:
+    name: Deploy ingest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ${{ inputs.target || 'staging' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@f2b2b233b538f500472c7274c7012f57857d8ce0 # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          args=()
+          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
+          pnpm --filter '@toneyarthi/ingest' exec wrangler deploy "${args[@]}"
+
+  ai_processor:
+    name: Deploy ai processor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ${{ inputs.target || 'staging' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@f2b2b233b538f500472c7274c7012f57857d8ce0 # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          args=()
+          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
+          pnpm --filter '@toneyarthi/ai-processor' exec wrangler deploy "${args[@]}"
+
+  audio_processor:
+    name: Deploy audio processor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ${{ inputs.target || 'staging' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@f2b2b233b538f500472c7274c7012f57857d8ce0 # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          args=()
+          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
+          pnpm --filter '@toneyarthi/audio-processor' exec wrangler deploy "${args[@]}"
+
+  briefings:
+    name: Deploy briefings
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ${{ inputs.target || 'staging' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@f2b2b233b538f500472c7274c7012f57857d8ce0 # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          args=()
+          if [[ "$DEPLOY_TARGET" != production ]]; then args+=(--env "$DEPLOY_TARGET"); fi
+          pnpm --filter '@toneyarthi/briefings' exec wrangler deploy "${args[@]}"
+
+  notify:
+    name: Notify deployment result
+    if: always()
+    needs: [api, ingest, ai_processor, audio_processor, briefings]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: ${{ inputs.target || 'staging' }}
+    steps:
+      - name: Send optional Slack notification
+        if: ${{ env.WEBHOOK_URL != '' }}
+        env:
+          WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          payload=$(jq -n --arg target "$DEPLOY_TARGET" --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --arg results "$RESULTS" \
+            '{text: ("Tone Yar Thi Worker deployment to " + $target + " finished. " + $run + "\n" + $results)}')
+          curl --fail --show-error --silent --retry 3 -H 'Content-Type: application/json' --data "$payload" "$WEBHOOK_URL"
