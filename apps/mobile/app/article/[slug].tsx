@@ -134,7 +134,7 @@ export default function ArticleScreen() {
 
   const paragraphs = useMemo(
     () =>
-      (article.data?.bodyMy?.trim() || article.data?.body || '')
+      (article.data?.bodyMy?.trim() || '')
         .split(/\n\s*\n/)
         .map((value) => value.trim())
         .filter(Boolean),
@@ -410,6 +410,11 @@ export default function ArticleScreen() {
                       size={18}
                       color={t.colors.brand}
                     />
+                    {source.publishedAt ? (
+                      <Typography variant="caption" color={t.colors.inkMuted}>
+                        {formatDate(source.publishedAt)}
+                      </Typography>
+                    ) : null}
                   </Pressable>
                 ))}
               </View>

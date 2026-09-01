@@ -94,17 +94,26 @@ describe('public API boundary', () => {
     assert.match(text, /source\.example/);
   });
 
-  it('article detail exposes editorial bodies but cannot query private tables', async () => {
+  it('article detail exposes only Burmese editorial copy and no source body', async () => {
     const db = new FakeDb();
     db.articleRows = [
-      { id: 'safe-id', title: 'Public', body: 'Edited copy', sources: '[]' },
+      {
+        id: 'safe-id',
+        title: 'Public',
+        bodyMy: 'Burmese synthesis',
+        sources: '[]',
+      },
     ];
     const response = await handleRequest(
       get('/v1/articles/safe-id'),
       env(db) as never,
     );
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /Edited copy/);
+    assert.match(await response.text(), /Burmese synthesis/);
+    const detailSql = db.calls.find(({ sql }) =>
+      sql.includes('FROM articles'),
+    )!.sql;
+    assert.doesNotMatch(detailSql, /a\.body(?:\W|$)/);
     assert.ok(
       db.calls.every(
         ({ sql }) =>

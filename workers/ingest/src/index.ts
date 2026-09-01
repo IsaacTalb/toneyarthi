@@ -86,8 +86,9 @@ async function insertCandidate(
     // source URL is never discarded merely because its content was syndicated.
     await env.DB.prepare(
       `INSERT OR IGNORE INTO article_sources
-        (article_id, source_id, source_url, source_article_id, fetched_at)
-       VALUES (?1, ?2, ?3, ?4, ?5)`,
+        (article_id, source_id, source_url, source_article_id, fetched_at,
+         original_title, original_published_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
     )
       .bind(
         existing.id,
@@ -95,6 +96,8 @@ async function insertCandidate(
         record.canonicalUrl,
         fingerprint,
         record.fetchedAt,
+        record.title,
+        record.publishedAt ?? null,
       )
       .run();
     seen.add(record.canonicalUrl).add(fingerprint);
@@ -117,23 +120,30 @@ async function insertCandidate(
         record.canonicalUrl,
         record.title,
         record.summary ?? null,
-        record.content ?? null,
+        // Source text is transient processing material, not a publication copy.
+        // Bound it here and erase it as soon as extraction succeeds.
+        record.content?.slice(0, 12_000) ?? null,
         record.author ?? null,
-        record.imageUrl ?? null,
+        // A feed image URL is not evidence of reuse rights. Editorial image
+        // tooling may populate this only alongside an article_images record.
+        null,
         record.language,
         fingerprint,
         record.publishedAt ?? null,
       ),
       env.DB.prepare(
         `INSERT INTO article_sources
-          (article_id, source_id, source_url, source_article_id, fetched_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)`,
+          (article_id, source_id, source_url, source_article_id, fetched_at,
+           original_title, original_published_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
       ).bind(
         articleId,
         source.id,
         record.canonicalUrl,
         fingerprint,
         record.fetchedAt,
+        record.title,
+        record.publishedAt ?? null,
       ),
       env.DB.prepare(
         `INSERT INTO processing_jobs

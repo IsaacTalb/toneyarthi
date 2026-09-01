@@ -42,14 +42,20 @@ class HttpError extends Error {
 
 const ARTICLE_SUMMARY = `
   a.id, a.title, a.title_my AS titleMy, a.summary, a.summary_my AS summaryMy,
-  a.author, a.image_url AS imageUrl, a.audio_url AS audioUrl,
+  a.author,
+  CASE WHEN EXISTS (
+    SELECT ai.article_id FROM article_images ai WHERE ai.article_id = a.id
+      AND ai.provenance_kind IN ('permitted-source','licensed-asset','editorial-upload','category-fallback')
+  ) THEN a.image_url ELSE NULL END AS imageUrl,
+  a.audio_url AS audioUrl,
   a.published_at AS publishedAt,
   c.slug AS categorySlug, c.name AS categoryName, c.name_my AS categoryNameMy,
   COALESCE((SELECT json_group_array(json_object(
     'name', source_rows.name, 'url', source_rows.source_url,
-    'siteUrl', source_rows.site_url
+    'siteUrl', source_rows.site_url, 'title', source_rows.original_title,
+    'publishedAt', source_rows.original_published_at
   )) FROM (
-    SELECT s.name, ars.source_url, s.site_url
+    SELECT s.name, ars.source_url, s.site_url, ars.original_title, ars.original_published_at
     FROM article_sources ars JOIN sources s ON s.id = ars.source_id
     WHERE ars.article_id = a.id AND s.is_active = 1 ORDER BY s.name
   ) source_rows), json('[]')) AS sources`;
@@ -261,7 +267,7 @@ async function route(
     if (!ID.test(id))
       throw new HttpError(400, 'INVALID_ARTICLE_ID', 'Invalid article id');
     const result = await env.DB.prepare(
-      `SELECT ${ARTICLE_SUMMARY}, a.body, a.body_my AS bodyMy FROM articles a LEFT JOIN categories c ON c.id = a.category_id WHERE a.id = ? AND ${PUBLISHABLE} LIMIT 1`,
+      `SELECT ${ARTICLE_SUMMARY}, a.body_my AS bodyMy FROM articles a LEFT JOIN categories c ON c.id = a.category_id WHERE a.id = ? AND ${PUBLISHABLE} LIMIT 1`,
     )
       .bind(id)
       .first<Record<string, unknown>>();

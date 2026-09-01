@@ -208,6 +208,12 @@ async function processMessage(
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ?1 AND pipeline_state = 'EXTRACTING'`,
       ).bind(payload.clusterId),
+      // The structured extraction is sufficient for synthesis and review.
+      // Remove transient source copies promptly while retaining attribution metadata.
+      env.DB.prepare(
+        `UPDATE articles SET body = NULL
+         WHERE id IN (SELECT article_id FROM story_cluster_articles WHERE cluster_id = ?1)`,
+      ).bind(payload.clusterId),
     ]);
     try {
       await enqueuePendingWriting(env, payload.clusterId);

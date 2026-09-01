@@ -13,11 +13,16 @@ export interface ArticleSummary {
   categorySlug?: string;
   categoryName?: string;
   categoryNameMy?: string;
-  sources: Array<{ name: string; url: string; siteUrl?: string }>;
+  sources: Array<{
+    name: string;
+    url: string;
+    siteUrl?: string;
+    title?: string;
+    publishedAt?: string;
+  }>;
 }
 
 export interface ArticleDetail extends ArticleSummary {
-  body: string;
   bodyMy?: string;
 }
 
