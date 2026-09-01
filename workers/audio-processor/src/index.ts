@@ -1,4 +1,5 @@
 import { createGeminiClient } from '@toneyarthi/ai';
+import { createLogger } from '@toneyarthi/shared/observability';
 import { audioKey, normalizeMediaKey, type MediaKey } from '@toneyarthi/media';
 import {
   validateWavHeader,
@@ -18,6 +19,8 @@ interface Env {
   TTS_STYLE?: string;
   TTS_TIMEOUT_MS?: string;
   TTS_FORCE_REGENERATION_TOKEN?: string;
+  ENVIRONMENT?: string;
+  RELEASE?: string;
 }
 
 interface AudioJobPayload {
@@ -239,7 +242,16 @@ async function processMessage(message: Message<unknown>, env: Env) {
     return;
   }
   const payload = message.body;
+  const logger = createLogger(
+    { service, environment: env.ENVIRONMENT, release: env.RELEASE },
+    {
+      correlationId: payload.jobId,
+      clusterId: payload.clusterId,
+      jobId: payload.jobId,
+    },
+  );
   const claim = await claimJob(env, payload);
+  logger.event('queue.attempt', 'info', { stage: 'tts', claim });
   if (claim === 'completed') return message.ack();
   if (claim !== 'claimed') return message.retry({ delaySeconds: 5 });
   try {
@@ -327,8 +339,10 @@ async function processMessage(message: Message<unknown>, env: Env) {
       await env.MEDIA_BUCKET.delete(temporaryKey);
     }
     message.ack();
+    logger.event('tts.completed', 'info');
   } catch (error) {
     const terminal = await fail(env, payload, error);
+    logger.event('tts.failed', 'error', { terminal, error });
     if (terminal) message.ack();
     else message.retry({ delaySeconds: 10 });
   }
