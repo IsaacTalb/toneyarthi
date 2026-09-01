@@ -51,7 +51,7 @@ export class PlaybackController {
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
       void this.store?.save(this.state);
-    }, 500);
+    }, 5_000);
   }
 
   async restore() {

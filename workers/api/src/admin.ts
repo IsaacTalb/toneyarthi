@@ -62,7 +62,7 @@ export async function handleAdminPlaylists(
         `SELECT p.id,p.slug,p.title_my titleMy,p.description,p.image_url imageUrl,
         p.is_active isActive,p.schedule_type scheduleType,p.updated_at updatedAt,
         COUNT(pa.article_id) articleCount FROM playlists p LEFT JOIN playlist_articles pa
-        ON pa.playlist_id=p.id GROUP BY p.id ORDER BY p.updated_at DESC`,
+        ON pa.playlist_id=p.id GROUP BY p.id ORDER BY p.updated_at DESC LIMIT 50`,
       ).all<Record<string, unknown>>();
       return {
         items: rows.results.map((row) => ({
@@ -85,7 +85,7 @@ export async function handleAdminPlaylists(
     const members = await env.DB.prepare(
       `SELECT a.id,a.title,a.title_my titleMy,a.published_at publishedAt,a.audio_url audioUrl
        FROM playlist_articles pa JOIN articles a ON a.id=pa.article_id
-       WHERE pa.playlist_id=?1 ORDER BY pa.position`,
+       WHERE pa.playlist_id=?1 ORDER BY pa.position LIMIT 100`,
     )
       .bind(id)
       .all<Record<string, unknown>>();
@@ -214,12 +214,13 @@ async function readPlaylistInput(request: Request) {
     throw new AdminError(400, 'INVALID_SCHEDULE', 'Invalid schedule type');
   if (
     !Array.isArray(value.articleIds) ||
+    value.articleIds.length > 100 ||
     value.articleIds.some((id) => typeof id !== 'string' || !ID.test(id))
   )
     throw new AdminError(
       400,
       'INVALID_ARTICLES',
-      'articleIds must contain valid ids',
+      'articleIds must contain at most 100 valid ids',
     );
   if (new Set(value.articleIds).size !== value.articleIds.length)
     throw new AdminError(
@@ -496,7 +497,7 @@ export async function handleAdminSources(
       `SELECT s.id,s.slug,s.name,s.feed_url feedUrl,s.adapter_type adapterType,
        s.is_active isActive,s.priority,s.last_success_at lastSuccess,s.last_error lastError,
        COUNT(ars.id) articleCount FROM sources s LEFT JOIN article_sources ars ON ars.source_id=s.id
-       GROUP BY s.id ORDER BY s.priority DESC,s.name`,
+       GROUP BY s.id ORDER BY s.priority DESC,s.name LIMIT 100`,
     ).all<SourceRow>();
     return {
       items: result.results.map((source) => ({

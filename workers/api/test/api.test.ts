@@ -116,6 +116,7 @@ describe('public API boundary', () => {
   it('rejects invalid inputs before SQL and bounds pagination', async () => {
     for (const path of [
       '/v1/feed?limit=51',
+      '/v1/feed?page=501',
       '/v1/categories/..%2Fsecret/feed',
       '/v1/search?q=x',
     ]) {
@@ -143,6 +144,8 @@ describe('public API boundary', () => {
       'https://app.example',
     );
     assert.match(allowed.headers.get('cache-control')!, /max-age=300/);
+    const feed = await handleRequest(get('/v1/feed'), env(db) as never);
+    assert.match(feed.headers.get('cache-control')!, /s-maxage=300/);
     const etag = allowed.headers.get('etag')!;
     const conditional = await handleRequest(
       get('/v1/categories', { headers: { 'if-none-match': etag } }),

@@ -12,6 +12,7 @@ const service = 'api';
 const API_PREFIX = '/v1';
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
+const MAX_PAGE = 500;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ID = /^[a-zA-Z0-9_-]{1,64}$/;
 
@@ -71,7 +72,7 @@ function pagination(url: URL): { limit: number; offset: number } {
     return value;
   };
   const limit = parse('limit', DEFAULT_LIMIT, MAX_LIMIT);
-  const page = parse('page', 1, 10_000);
+  const page = parse('page', 1, MAX_PAGE);
   return { limit, offset: (page - 1) * limit };
 }
 
@@ -112,7 +113,7 @@ async function jsonResponse(
   env: Env,
   data: Json,
   status = 200,
-  cache = 'public, max-age=60, stale-while-revalidate=300',
+  cache = 'public, max-age=60, s-maxage=300, stale-while-revalidate=300',
 ): Promise<Response> {
   const body = JSON.stringify({
     success: status < 400,
