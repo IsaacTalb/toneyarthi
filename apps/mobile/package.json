@@ -5,6 +5,12 @@
   "type": "module",
   "main": "expo-router/entry",
   "scripts": {
+    "assets:generate": "node scripts/generate-expo-assets.mjs",
+    "eas-build-post-install": "pnpm assets:generate",
+    "prestart": "pnpm assets:generate",
+    "preandroid": "pnpm assets:generate",
+    "preios": "pnpm assets:generate",
+    "preweb": "pnpm assets:generate",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

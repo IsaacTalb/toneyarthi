@@ -16,6 +16,7 @@ Gemini, D1, R2, or Queue integration.
 corepack enable
 pnpm install
 cp .env.example .env
+pnpm --filter @toneyarthi/mobile assets:generate
 pnpm mobile:start
 ```
 
@@ -57,6 +58,11 @@ Native background-audio setup, store configuration, development-client limitatio
 Expo push registration, Firebase/APNs/EAS credentials, store-console checks,
 physical-device acceptance, and the intentionally conservative sending policy
 are documented in [`docs/push-notifications.md`](docs/push-notifications.md).
+
+The manual iOS release checklist—including Apple identifiers, signing, APNs,
+privacy and metadata preparation, TestFlight, and App Review notes—is in
+[`docs/ios-release.md`](docs/ios-release.md). Nothing in this repository submits
+a build automatically.
 
 ## Cloudflare D1
 
