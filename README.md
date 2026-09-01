@@ -87,3 +87,10 @@ be safely applied more than once:
 pnpm exec wrangler d1 execute tone-yar-thi --local --config workers/api/wrangler.toml --file database/seeds/0001_categories.sql
 pnpm exec wrangler d1 execute tone-yar-thi --remote --config workers/api/wrangler.toml --file database/seeds/0001_categories.sql
 ```
+
+## CI and deployments
+
+GitHub Actions validate linting, types, tests, native Expo bundles, and dry-run
+Worker builds. Worker deployments, protected preview/staging/production
+environments, least-privilege credentials, monitoring, and notification setup are
+documented in [`docs/deployment.md`](docs/deployment.md).

@@ -13,7 +13,9 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "mobile:start": "pnpm --filter @toneyarthi/mobile start",
     "mobile:config": "pnpm --filter @toneyarthi/mobile exec expo config --type public",
-    "workers:dry-run": "pnpm --filter './workers/*' run deploy:dry-run"
+    "workers:dry-run": "pnpm --filter './workers/*' run deploy:dry-run",
+    "test": "pnpm -r --if-present test",
+    "mobile:export": "pnpm --filter @toneyarthi/mobile exec expo export --platform android --platform ios --output-dir dist/expo"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
