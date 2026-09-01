@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { Image, Pressable, View, type PressableProps } from 'react-native';
 import { useTheme } from '../theme';
 import { Typography } from './Typography';
+import { usePolicyImageUrl } from '../dataPolicy';
 
 export type HomeStory = {
   id: string;
@@ -21,6 +22,7 @@ type Props = Omit<PressableProps, 'children'> & {
 
 function StoryCard({ story, featured = false, ...props }: Props) {
   const t = useTheme();
+  const imageUrl = usePolicyImageUrl(story.imageUrl);
   return (
     <Pressable
       accessibilityRole="button"
@@ -41,9 +43,9 @@ function StoryCard({ story, featured = false, ...props }: Props) {
           : props.style,
       ]}
     >
-      {story.imageUrl ? (
+      {imageUrl ? (
         <Image
-          source={{ uri: story.imageUrl, cache: 'force-cache' }}
+          source={{ uri: imageUrl, cache: 'force-cache' }}
           accessibilityIgnoresInvertColors
           resizeMode="cover"
           resizeMethod="resize"

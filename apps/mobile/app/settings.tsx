@@ -2,13 +2,63 @@ import { Pressable, Switch, View } from 'react-native';
 import { Container, Typography } from '../src/components';
 import { useTheme } from '../src/theme';
 import { useNotifications } from '../src/notifications';
+import { useDataPolicy, type DataMode } from '../src/dataPolicy';
 
 export default function SettingsScreen() {
   const t = useTheme();
   const notifications = useNotifications();
+  const dataPolicy = useDataPolicy();
   return (
     <Container edges={['left', 'right']} style={{ paddingTop: t.spacing.lg }}>
       <View style={{ gap: t.spacing.md }}>
+        <View
+          style={{
+            padding: t.spacing.md,
+            gap: t.spacing.sm,
+            borderRadius: t.radius.md,
+            backgroundColor: t.colors.surface,
+          }}
+        >
+          <Typography variant="label">ဒေတာ အသုံးပြုမှု</Typography>
+          <Typography variant="caption" color={t.colors.inkMuted}>
+            Data Saver သည် ပုံငယ်များကို သုံးပြီး နောက်ခံဒေတာနှင့် အလိုအလျောက်
+            အသံဒေါင်းလုဒ်များကို လျှော့ချပေးသည်။
+          </Typography>
+          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+            {(
+              [
+                ['standard', 'Standard'],
+                ['data-saver', 'Data Saver'],
+              ] as const
+            ).map(([mode, label]) => (
+              <Pressable
+                key={mode}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: dataPolicy.mode === mode }}
+                onPress={() => void dataPolicy.setMode(mode as DataMode)}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  padding: t.spacing.sm,
+                  borderRadius: t.radius.pill,
+                  backgroundColor:
+                    dataPolicy.mode === mode
+                      ? t.colors.brand
+                      : t.colors.brandSoft,
+                }}
+              >
+                <Typography
+                  variant="label"
+                  color={
+                    dataPolicy.mode === mode ? t.colors.onBrand : t.colors.brand
+                  }
+                >
+                  {label}
+                </Typography>
+              </Pressable>
+            ))}
+          </View>
+        </View>
         <View
           style={{
             flexDirection: 'row',

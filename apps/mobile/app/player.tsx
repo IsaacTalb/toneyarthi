@@ -16,6 +16,7 @@ import {
 import { Container, Typography } from '../src/components';
 import { PLAYBACK_RATES, usePlayback } from '../src/playback';
 import { useTheme } from '../src/theme';
+import { usePolicyImageUrl } from '../src/dataPolicy';
 
 const clock = (seconds: number) => {
   const value = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -31,6 +32,7 @@ export default function PlayerScreen() {
   const [saved, setSaved] = useState(false);
   const [queued, setQueued] = useState(false);
   const item = playback.item;
+  const artworkUrl = usePolicyImageUrl(item?.artworkUri);
   const hasMedia = Boolean(item?.uri);
   const canSeek =
     hasMedia && playback.duration > 0 && playback.phase !== 'loading';
@@ -85,9 +87,9 @@ export default function PlayerScreen() {
             compactLandscape && styles.landscapeArtwork,
           ]}
         >
-          {item?.artworkUri ? (
+          {artworkUrl ? (
             <Image
-              source={{ uri: item.artworkUri }}
+              source={{ uri: artworkUrl }}
               accessibilityLabel={`${item.title} သတင်းဓာတ်ပုံ`}
               accessibilityIgnoresInvertColors
               resizeMode="cover"
