@@ -303,14 +303,20 @@ async function processMessage(message: Message<unknown>, env: Env) {
     );
     try {
       await env.MEDIA_BUCKET.put(temporaryKey, wav.data, {
-        httpMetadata: { contentType: 'audio/wav' },
+        httpMetadata: {
+          contentType: 'audio/wav',
+          cacheControl: 'public, max-age=31536000, immutable',
+        },
         customMetadata: metadata,
       });
       if (!isValidAudioObject(await env.MEDIA_BUCKET.head(temporaryKey)))
         throw new Error('Temporary audio object failed validation');
       // R2 PUTs are atomic; publishing the already complete buffer prevents a partial final object.
       await env.MEDIA_BUCKET.put(key, wav.data, {
-        httpMetadata: { contentType: 'audio/wav' },
+        httpMetadata: {
+          contentType: 'audio/wav',
+          cacheControl: 'public, max-age=31536000, immutable',
+        },
         customMetadata: metadata,
       });
       const finalObject = await env.MEDIA_BUCKET.head(key);

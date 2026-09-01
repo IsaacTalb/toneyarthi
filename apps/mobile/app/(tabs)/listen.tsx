@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -26,37 +26,46 @@ export default function ListenScreen() {
     queries.playlist('morning-briefing', { limit: LIMIT }),
   );
   const latest = useQuery(queries.audio({ limit: LIMIT }));
-  const categories = useQuery(queries.categories());
-  const initialCategories = useMemo(
-    () => categories.data?.items.slice(0, 4) ?? [],
-    [categories.data],
-  );
-  const categoryFeeds = useQueries({
-    queries: initialCategories.map((category) =>
-      queries.categoryFeed(category.slug, { limit: LIMIT }),
-    ),
-  });
-
-  const sections = [
-    {
-      key: 'morning',
-      title: 'Morning Briefing',
-      items: morning.data?.items ?? [],
-      pending: morning.isPending,
-    },
-    {
-      key: 'latest',
-      title: 'Latest Audio News',
-      items: latest.data?.items ?? [],
-      pending: latest.isPending,
-    },
-    ...initialCategories.map((category, index) => ({
-      key: category.slug,
-      title: category.nameMy?.trim() || category.name,
-      items: categoryFeeds[index]?.data?.items ?? [],
-      pending: categoryFeeds[index]?.isPending ?? true,
-    })),
-  ];
+  // The audio response already contains category metadata. Deriving these
+  // shelves locally avoids a categories request followed by four feed
+  // requests, and guarantees every displayed row is directly playable.
+  const sections = useMemo(() => {
+    const latestItems = latest.data?.items ?? [];
+    const groups = new Map<
+      string,
+      { title: string; items: ArticleSummary[] }
+    >();
+    for (const item of latestItems) {
+      const key = item.categorySlug ?? 'news';
+      const group = groups.get(key) ?? {
+        title:
+          item.categoryNameMy?.trim() || item.categoryName?.trim() || 'သတင်း',
+        items: [],
+      };
+      group.items.push(item);
+      groups.set(key, group);
+    }
+    return [
+      {
+        key: 'morning',
+        title: 'Morning Briefing',
+        items: morning.data?.items ?? [],
+        pending: morning.isPending,
+      },
+      {
+        key: 'latest',
+        title: 'Latest Audio News',
+        items: latestItems,
+        pending: latest.isPending,
+      },
+      ...[...groups.entries()].slice(0, 4).map(([key, group]) => ({
+        key,
+        title: group.title,
+        items: group.items,
+        pending: latest.isPending,
+      })),
+    ];
+  }, [latest.data, latest.isPending, morning.data, morning.isPending]);
 
   const start = async (key: string, items: ArticleSummary[], index = 0) => {
     setStarting(key);
@@ -69,18 +78,14 @@ export default function ListenScreen() {
     router.push('/player');
   };
 
-  if ((morning.isError && latest.isError) || categories.isError)
+  if (morning.isError && latest.isError)
     return (
       <Container>
         <ErrorState
           message="နားဆင်စရာများကို မရယူနိုင်သေးပါ။"
           actionLabel="ထပ်ကြိုးစားမည်"
           onAction={() =>
-            void Promise.all([
-              morning.refetch(),
-              latest.refetch(),
-              categories.refetch(),
-            ])
+            void Promise.all([morning.refetch(), latest.refetch()])
           }
         />
       </Container>
