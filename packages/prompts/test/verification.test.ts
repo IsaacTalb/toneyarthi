@@ -72,6 +72,19 @@ test('only unresolved all-minor results receive one correction', () => {
   );
 });
 
+test('high-risk and conflicting stories cannot advance automatically', () => {
+  assert.equal(
+    routeVerification({ passed: true, errors: [] }, false, {
+      level: 'high',
+      confidence: 'low',
+      topics: ['election'],
+      reasons: ['sensitive_topic:election'],
+      requiresHumanReview: true,
+    }),
+    'NEEDS_REVIEW',
+  );
+});
+
 test('correction is limited to minor errors and explicitly requires re-verification', () => {
   const content = {
     title_mm: 'သတင်း',

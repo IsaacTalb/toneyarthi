@@ -66,6 +66,11 @@ export function nextAutomaticStoryState(
   return null;
 }
 
+/** Automatic publication is forbidden for all stories; elevated stories additionally require review. */
+export function canAutomaticallyPublish(_risk: 'standard' | 'high'): false {
+  return false;
+}
+
 const JOB_TYPES = new Set<string>(QUEUE_JOB_TYPES);
 
 /** Validate untrusted Queue bodies without accepting extra or future versions. */

@@ -667,6 +667,10 @@ interface ClusterRow {
   reviewed_by: string | null;
   publish_mode: string;
   published_at: string | null;
+  editorial_risk: string;
+  editorial_confidence: string;
+  risk_topics: string;
+  risk_reasons: string;
 }
 
 interface AuditRow {
@@ -878,7 +882,8 @@ export async function handleAdminAction(
     );
 
   const cluster = await env.DB.prepare(
-    `SELECT id, pipeline_state, reviewed_at, reviewed_by, publish_mode, published_at
+    `SELECT id, pipeline_state, reviewed_at, reviewed_by, publish_mode, published_at,
+            editorial_risk, editorial_confidence, risk_topics, risk_reasons
        FROM story_clusters WHERE id = ?1`,
   )
     .bind(id)
@@ -894,6 +899,13 @@ export async function handleAdminAction(
     );
 
   const now = new Date().toISOString();
+  const auditDetails = {
+    ...details,
+    editorialRisk: cluster.editorial_risk,
+    editorialConfidence: cluster.editorial_confidence,
+    riskTopics: parseJson<string[]>(cluster.risk_topics, []),
+    riskReasons: parseJson<string[]>(cluster.risk_reasons, []),
+  };
   const jobId = crypto.randomUUID();
   const statements: D1PreparedStatement[] = [
     env.DB.prepare(
@@ -960,7 +972,7 @@ export async function handleAdminAction(
       action,
       cluster.pipeline_state,
       nextState,
-      JSON.stringify(details),
+      JSON.stringify(auditDetails),
       key,
       now,
     ),
@@ -973,7 +985,7 @@ export async function handleAdminAction(
       action,
       from_state: cluster.pipeline_state,
       to_state: nextState,
-      details: JSON.stringify(details),
+      details: JSON.stringify(auditDetails),
       created_at: now,
     },
     false,
@@ -1051,7 +1063,9 @@ export async function handleAdminReview(
   }
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
   const cluster = await env.DB.prepare(
-    'SELECT id,title,pipeline_state AS state,updated_at AS updatedAt FROM story_clusters WHERE id=?1',
+    `SELECT id,title,pipeline_state AS state,updated_at AS updatedAt,
+      editorial_risk AS editorialRisk,editorial_confidence AS editorialConfidence,
+      risk_topics AS riskTopics,risk_reasons AS riskReasons FROM story_clusters WHERE id=?1`,
   )
     .bind(id)
     .first<Record<string, unknown>>();
@@ -1107,7 +1121,8 @@ export async function handleAdminReview(
     extraction?.output ?? null,
     {},
   );
-  const factsValue = output.facts ?? output.keyFacts ?? [];
+  const factsValue =
+    output.confirmedFacts ?? output.facts ?? output.keyFacts ?? [];
   const facts = Array.isArray(factsValue)
     ? factsValue.map((fact) =>
         typeof fact === 'string' ? fact : JSON.stringify(fact),
@@ -1115,9 +1130,23 @@ export async function handleAdminReview(
     : [];
   return {
     ...cluster,
+    riskTopics: parseJson<string[]>(String(cluster.riskTopics ?? '[]'), []),
+    riskReasons: parseJson<string[]>(String(cluster.riskReasons ?? '[]'), []),
     draft,
     sources: sources.results,
     facts,
+    attributedClaims: Array.isArray(output.attributedClaims)
+      ? output.attributedClaims
+      : [],
+    allegations: Array.isArray(output.allegations) ? output.allegations : [],
+    predictions: Array.isArray(output.predictions) ? output.predictions : [],
+    opinions: Array.isArray(output.opinions) ? output.opinions : [],
+    uncertainties: Array.isArray(output.uncertainFacts)
+      ? output.uncertainFacts
+      : [],
+    sourceDisagreements: Array.isArray(output.sourceDisagreements)
+      ? output.sourceDisagreements
+      : [],
     verification: verification
       ? {
           ...verification,
@@ -1134,6 +1163,7 @@ export async function handleAdminReview(
       changedFields:
         parseJson<{ changedFields?: string[] }>(item.details, {})
           .changedFields ?? [],
+      details: parseJson<Record<string, unknown>>(item.details, {}),
     })),
   };
 }

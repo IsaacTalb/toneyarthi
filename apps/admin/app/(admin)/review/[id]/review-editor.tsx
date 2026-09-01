@@ -18,6 +18,10 @@ export interface ReviewDetail {
   title: string;
   state: string;
   updatedAt: string;
+  editorialRisk: 'standard' | 'high';
+  editorialConfidence: 'high' | 'medium' | 'low';
+  riskTopics: string[];
+  riskReasons: string[];
   draft: {
     titleMm: string;
     summaryMm: string;
@@ -31,6 +35,12 @@ export interface ReviewDetail {
     publishedAt: string | null;
   }[];
   facts: string[];
+  attributedClaims: unknown[];
+  allegations: unknown[];
+  predictions: unknown[];
+  opinions: unknown[];
+  uncertainties: unknown[];
+  sourceDisagreements: unknown[];
   verification: {
     passed: boolean | null;
     attempt: number;
@@ -47,6 +57,7 @@ export interface ReviewDetail {
     actor: string;
     createdAt: string;
     changedFields: string[];
+    details: Record<string, unknown>;
   }[];
 }
 
@@ -247,9 +258,15 @@ export function ReviewEditor({ initial }: { initial: ReviewDetail }) {
             )}
           </Card>
           <Card
-            title="Extracted facts"
-            subtitle="Facts retained from the source extraction."
+            title="Evidence ledger"
+            subtitle="Categories remain distinct; disagreements are never resolved silently."
           >
+            <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              Risk: <strong>{initial.editorialRisk}</strong> · Confidence:{' '}
+              <strong>{initial.editorialConfidence}</strong>
+              {initial.riskTopics.length > 0 &&
+                ` · ${initial.riskTopics.join(', ')}`}
+            </p>
             <ul className="space-y-3">
               {initial.facts.map((fact, index) => (
                 <li key={index} className="flex gap-3 text-sm">
@@ -260,6 +277,26 @@ export function ReviewEditor({ initial }: { initial: ReviewDetail }) {
                 </li>
               ))}
             </ul>
+            {(
+              [
+                ['Attributed claims', initial.attributedClaims],
+                ['Allegations', initial.allegations],
+                ['Predictions', initial.predictions],
+                ['Opinions', initial.opinions],
+                ['Uncertainty', initial.uncertainties],
+                ['Source disagreements', initial.sourceDisagreements],
+              ] as const
+            ).map(
+              ([label, items]) =>
+                items.length > 0 && (
+                  <div key={label} className="mt-5">
+                    <h3 className="text-sm font-semibold">{label}</h3>
+                    <pre className="mt-2 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs">
+                      {JSON.stringify(items, null, 2)}
+                    </pre>
+                  </div>
+                ),
+            )}
           </Card>
         </div>
         <aside className="space-y-6">
@@ -403,6 +440,11 @@ export function ReviewEditor({ initial }: { initial: ReviewDetail }) {
                     <p className="mt-1 text-xs text-slate-500">
                       Changed: {item.changedFields.join(', ')}
                     </p>
+                  )}
+                  {Object.keys(item.details).length > 0 && (
+                    <pre className="mt-1 overflow-auto whitespace-pre-wrap text-xs text-slate-500">
+                      {JSON.stringify(item.details, null, 2)}
+                    </pre>
                   )}
                 </li>
               ))}

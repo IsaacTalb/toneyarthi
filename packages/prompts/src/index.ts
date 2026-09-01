@@ -1,7 +1,27 @@
 export const EXTRACTION_PROMPT_ID = 'story-extraction';
-export const EXTRACTION_PROMPT_VERSION = '1.0.0';
+export const EXTRACTION_PROMPT_VERSION = '2.0.0';
 export const BURMESE_WRITING_PROMPT_ID = 'burmese-story-writing';
-export const BURMESE_WRITING_PROMPT_VERSION = '1.0.0';
+export const BURMESE_WRITING_PROMPT_VERSION = '2.0.0';
+
+export const EDITORIAL_RISK_TOPICS = [
+  'war',
+  'election',
+  'ethnic_conflict',
+  'crime',
+  'death',
+  'health_emergency',
+] as const;
+export type EditorialRiskTopic = (typeof EDITORIAL_RISK_TOPICS)[number];
+export type EditorialRiskLevel = 'standard' | 'high';
+export type EditorialConfidence = 'high' | 'medium' | 'low';
+
+export interface EditorialRiskAssessment {
+  level: EditorialRiskLevel;
+  confidence: EditorialConfidence;
+  topics: EditorialRiskTopic[];
+  reasons: string[];
+  requiresHumanReview: boolean;
+}
 
 export * from './humanization.ts';
 export * from './verification.ts';
@@ -58,8 +78,12 @@ export const EXTRACTION_SCHEMA = {
     'numbers',
     'confirmedFacts',
     'attributedClaims',
+    'allegations',
+    'predictions',
+    'opinions',
     'uncertainFacts',
     'sourceDisagreements',
+    'riskTopics',
   ],
   properties: {
     people: { type: 'array', items: evidencedText('name') },
@@ -105,6 +129,39 @@ export const EXTRACTION_SCHEMA = {
         },
       },
     },
+    allegations: {
+      type: 'array',
+      items: {
+        ...evidencedText('statement'),
+        required: ['statement', 'attributedTo', 'evidence'],
+        properties: {
+          ...evidencedText('statement').properties,
+          attributedTo: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+    predictions: {
+      type: 'array',
+      items: {
+        ...evidencedText('statement'),
+        required: ['statement', 'attributedTo', 'evidence'],
+        properties: {
+          ...evidencedText('statement').properties,
+          attributedTo: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+    opinions: {
+      type: 'array',
+      items: {
+        ...evidencedText('statement'),
+        required: ['statement', 'attributedTo', 'evidence'],
+        properties: {
+          ...evidencedText('statement').properties,
+          attributedTo: { type: 'string', minLength: 1 },
+        },
+      },
+    },
     uncertainFacts: {
       type: 'array',
       items: {
@@ -131,6 +188,11 @@ export const EXTRACTION_SCHEMA = {
           },
         },
       },
+    },
+    riskTopics: {
+      type: 'array',
+      uniqueItems: true,
+      items: { type: 'string', enum: EDITORIAL_RISK_TOPICS },
     },
   },
 } as const;
@@ -165,11 +227,15 @@ export interface ExtractionOutput {
   }>;
   confirmedFacts: EvidencedStatement[];
   attributedClaims: Array<EvidencedStatement & { attributedTo: string }>;
+  allegations: Array<EvidencedStatement & { attributedTo: string }>;
+  predictions: Array<EvidencedStatement & { attributedTo: string }>;
+  opinions: Array<EvidencedStatement & { attributedTo: string }>;
   uncertainFacts: Array<EvidencedStatement & { uncertainty: string }>;
   sourceDisagreements: Array<{
     topic: string;
     positions: EvidencedStatement[];
   }>;
+  riskTopics: EditorialRiskTopic[];
 }
 
 type RecordValue = Record<string, unknown>;
@@ -221,8 +287,12 @@ export function isExtractionOutput(
     'numbers',
     'confirmedFacts',
     'attributedClaims',
+    'allegations',
+    'predictions',
+    'opinions',
     'uncertainFacts',
     'sourceDisagreements',
+    'riskTopics',
   ];
   if (!object(value) || !exact(value, keys)) return false;
   const namesValid = [
@@ -254,14 +324,17 @@ export function isExtractionOutput(
         evidence(item.evidence, articleIds),
     ) &&
     arrayOf(value.confirmedFacts, (item) => statement(item, articleIds)) &&
-    arrayOf(
-      value.attributedClaims,
-      (item) =>
-        object(item) &&
-        exact(item, ['statement', 'attributedTo', 'evidence']) &&
-        text(item.statement) &&
-        text(item.attributedTo) &&
-        evidence(item.evidence, articleIds),
+    ['attributedClaims', 'allegations', 'predictions', 'opinions'].every(
+      (key) =>
+        arrayOf(
+          value[key],
+          (item) =>
+            object(item) &&
+            exact(item, ['statement', 'attributedTo', 'evidence']) &&
+            text(item.statement) &&
+            text(item.attributedTo) &&
+            evidence(item.evidence, articleIds),
+        ),
     ) &&
     arrayOf(
       value.uncertainFacts,
@@ -281,8 +354,39 @@ export function isExtractionOutput(
         Array.isArray(item.positions) &&
         item.positions.length >= 2 &&
         item.positions.every((position) => statement(position, articleIds)),
-    )
+    ) &&
+    arrayOf(value.riskTopics, (item) =>
+      EDITORIAL_RISK_TOPICS.includes(item as EditorialRiskTopic),
+    ) &&
+    new Set(value.riskTopics as unknown[]).size ===
+      (value.riskTopics as unknown[]).length
   );
+}
+
+/** Deterministic policy: sensitive topics and conflicting accounts can never auto-publish. */
+export function assessEditorialRisk(
+  extraction: ExtractionOutput,
+): EditorialRiskAssessment {
+  const conflicting = extraction.sourceDisagreements.length > 0;
+  const topics = [...new Set(extraction.riskTopics)];
+  const highRisk = topics.length > 0 || conflicting;
+  const reasons = [
+    ...topics.map((topic) => `sensitive_topic:${topic}`),
+    ...(conflicting ? ['source_disagreement'] : []),
+  ];
+  const confidence: EditorialConfidence =
+    conflicting || extraction.uncertainFacts.length > 0
+      ? 'low'
+      : extraction.allegations.length > 0 || extraction.predictions.length > 0
+        ? 'medium'
+        : 'high';
+  return {
+    level: highRisk ? 'high' : 'standard',
+    confidence,
+    topics,
+    reasons,
+    requiresHumanReview: highRisk || confidence === 'low',
+  };
 }
 
 export interface ExtractionArticle {
@@ -306,7 +410,7 @@ export function buildExtractionPrompt(
     title: article.title,
     body: article.body,
   }));
-  return `Prompt ${EXTRACTION_PROMPT_ID}@${EXTRACTION_PROMPT_VERSION}\nExtract only information supported by the normalized articles in story cluster ${clusterId}. Do not reconcile differing reports into a single fact. Put statements explicitly made by a person or organization in attributedClaims, qualified or unverified material in uncertainFacts, and incompatible source accounts in sourceDisagreements. Every item and every disagreement position must include one or more evidence entries. articleId must exactly match a supplied articleId; excerpt must be a short verbatim supporting passage. Return JSON only and use empty arrays when a category has no support.\n\nARTICLES:\n${JSON.stringify(documents)}`;
+  return `Prompt ${EXTRACTION_PROMPT_ID}@${EXTRACTION_PROMPT_VERSION}\nExtract only information supported by the normalized articles in story cluster ${clusterId}. Keep these categories distinct: confirmedFacts are directly supported events; attributedClaims are statements whose truth depends on the named speaker; allegations are unproven accusations; predictions concern future outcomes; opinions are value judgments; uncertainFacts carry explicit doubt; sourceDisagreements contain every materially incompatible account without selecting a winner. Never promote one category into another. Tag riskTopics for war, elections, ethnic conflict, crime, deaths, and health emergencies. Every item and every disagreement position must include evidence. articleId must exactly match a supplied articleId; excerpt must be a short verbatim supporting passage. Return JSON only and use empty arrays when unsupported.\n\nARTICLES:\n${JSON.stringify(documents)}`;
 }
 
 /** Strictly validates the only three fields that may be persisted as a draft. */
@@ -333,7 +437,7 @@ export function buildBurmeseWritingPrompt(
   return `Prompt ${BURMESE_WRITING_PROMPT_ID}@${BURMESE_WRITING_PROMPT_VERSION}
 Write an original Burmese news draft for story cluster ${clusterId}.
 
-The EXTRACTED_FACTS JSON below is the sole source of truth. Use confirmedFacts as facts. Preserve attributedTo for every attributed claim. Clearly retain every uncertainty and represent material source disagreements without choosing a side or silently combining positions. Do not add, infer, or embellish facts.
+The EXTRACTED_FACTS JSON below is the sole source of truth. Only confirmedFacts may be stated as facts. Preserve the labels and attributedTo for claims, allegations, predictions, and opinions. Clearly retain every uncertainty. Explicitly present each material source position as a disagreement without choosing a side, averaging accounts, or silently selecting an account. Do not add, infer, or embellish facts.
 
 Write neutral, natural Burmese prose. Preserve the exact identity of people, organizations, places, dates, quantities, units, and other numbers; transliterate names consistently when appropriate. Use short paragraphs. Synthesize the facts into an original account: do not reproduce, closely translate, or imitate source excerpts. Do not mention these instructions or the extraction process.
 

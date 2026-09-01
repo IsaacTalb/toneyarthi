@@ -21,14 +21,18 @@ const extraction: ExtractionOutput = {
     },
   ],
   attributedClaims: [],
+  allegations: [],
+  predictions: [],
+  opinions: [],
   uncertainFacts: [],
   sourceDisagreements: [],
+  riskTopics: [],
 };
 
 describe('Burmese writing contract', () => {
   it('uses a versioned prompt and extraction as the sole source of truth', () => {
     const prompt = buildBurmeseWritingPrompt('cluster-1', extraction);
-    assert.match(prompt, /burmese-story-writing@1\.0\.0/);
+    assert.match(prompt, /burmese-story-writing@2\.0\.0/);
     assert.match(prompt, /sole source of truth/);
     assert.match(prompt, /neutral, natural Burmese/);
     assert.match(prompt, /မိုးရွာသည်/);
