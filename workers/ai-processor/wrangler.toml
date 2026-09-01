@@ -1,34 +1,116 @@
-name = "toneyarthi-ai-processor"
+name = "toneyarthi-ai-processor-base"
 main = "src/index.ts"
 compatibility_date = "2025-08-30"
+workers_dev = false
+routes = []
 
-[[queues.consumers]]
-queue = "news-processing"
+# Bindings are intentionally defined only inside named environments. Never deploy
+# this base configuration; use --env development, staging, or production.
+
+[env.development]
+name = "toneyarthi-ai-processor-dev"
+workers_dev = false
+routes = []
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "toneyarthi-dev"
+database_id = "10000000-0000-4000-8000-000000000001"
+migrations_dir = "../../database/migrations"
+
+[[env.development.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "toneyarthi-media-dev"
+
+[[env.development.queues.consumers]]
+queue = "toneyarthi-news-processing-dev"
 max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 2
-dead_letter_queue = "news-processing-dlq"
+dead_letter_queue = "toneyarthi-news-processing-dlq-dev"
 
-[[queues.producers]]
+[[env.development.queues.producers]]
 binding = "TTS_QUEUE"
-queue = "tts-processing"
+queue = "toneyarthi-tts-processing-dev"
 
-[[queues.producers]]
+[[env.development.queues.producers]]
 binding = "PIPELINE_QUEUE"
-queue = "news-processing"
+queue = "toneyarthi-news-processing-dev"
 
-[[d1_databases]]
+[env.development.vars]
+ENVIRONMENT = "development"
+RELEASE = "local"
+MEDIA_PUBLIC_BASE_URL = "https://media-dev.toneyarthi.com"
+GEMINI_TEXT_MODEL = "gemini-2.5-flash"
+
+[env.staging]
+name = "toneyarthi-ai-processor-stg"
+workers_dev = false
+routes = []
+
+[[env.staging.d1_databases]]
 binding = "DB"
-database_name = "tone-yar-thi"
-database_id = "00000000-0000-0000-0000-000000000000"
-preview_database_id = "11111111-1111-1111-1111-111111111111"
+database_name = "toneyarthi-stg"
+database_id = "20000000-0000-4000-8000-000000000002"
 migrations_dir = "../../database/migrations"
 
-[[r2_buckets]]
+[[env.staging.r2_buckets]]
 binding = "MEDIA_BUCKET"
-bucket_name = "tone-yar-thi-media"
+bucket_name = "toneyarthi-media-stg"
 
-[vars]
-MEDIA_PUBLIC_BASE_URL = "https://pub-account-specific-id.r2.dev"
+[[env.staging.queues.consumers]]
+queue = "toneyarthi-news-processing-stg"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 2
+dead_letter_queue = "toneyarthi-news-processing-dlq-stg"
+
+[[env.staging.queues.producers]]
+binding = "TTS_QUEUE"
+queue = "toneyarthi-tts-processing-stg"
+
+[[env.staging.queues.producers]]
+binding = "PIPELINE_QUEUE"
+queue = "toneyarthi-news-processing-stg"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+RELEASE = "local"
+MEDIA_PUBLIC_BASE_URL = "https://media-stg.toneyarthi.com"
+GEMINI_TEXT_MODEL = "gemini-2.5-flash"
+
+[env.production]
+name = "toneyarthi-ai-processor-prod"
+workers_dev = false
+routes = []
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "toneyarthi-prod"
+database_id = "30000000-0000-4000-8000-000000000003"
+migrations_dir = "../../database/migrations"
+
+[[env.production.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "toneyarthi-media-prod"
+
+[[env.production.queues.consumers]]
+queue = "toneyarthi-news-processing-prod"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 2
+dead_letter_queue = "toneyarthi-news-processing-dlq-prod"
+
+[[env.production.queues.producers]]
+binding = "TTS_QUEUE"
+queue = "toneyarthi-tts-processing-prod"
+
+[[env.production.queues.producers]]
+binding = "PIPELINE_QUEUE"
+queue = "toneyarthi-news-processing-prod"
+
+[env.production.vars]
 ENVIRONMENT = "production"
 RELEASE = "local"
+MEDIA_PUBLIC_BASE_URL = "https://media-prod.toneyarthi.com"
+GEMINI_TEXT_MODEL = "gemini-2.5-flash"

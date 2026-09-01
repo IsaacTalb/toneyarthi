@@ -91,6 +91,23 @@ export function normalizeBaseUrl(value: string | undefined): string {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL must use http or https');
   }
+  const environment = process.env.EXPO_PUBLIC_APP_ENVIRONMENT ?? 'development';
+  const environmentHosts: Record<string, ReadonlySet<string>> = {
+    development: new Set([
+      'localhost',
+      '127.0.0.1',
+      '[::1]',
+      'api-dev.toneyarthi.com',
+    ]),
+    staging: new Set(['api-staging.toneyarthi.com']),
+    production: new Set(['api.toneyarthi.com']),
+  };
+  if (
+    url.hostname.endsWith('toneyarthi.com') &&
+    !environmentHosts[environment]?.has(url.hostname)
+  ) {
+    throw new Error(`EXPO_PUBLIC_API_BASE_URL is not valid for ${environment}`);
+  }
   if (url.username || url.password || url.search || url.hash) {
     throw new Error(
       'EXPO_PUBLIC_API_BASE_URL cannot contain credentials, query, or hash',

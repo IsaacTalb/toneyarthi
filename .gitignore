@@ -26,3 +26,9 @@ web-build/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Checked-in, placeholder-only environment contracts
+!apps/admin/.env.development.example
+!apps/admin/.env.staging.example
+!apps/admin/.env.production.example
+!workers/*/.dev.vars.example
