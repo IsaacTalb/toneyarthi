@@ -13,6 +13,7 @@ import {
   useState,
 } from 'react';
 import { Platform } from 'react-native';
+import { analytics } from '../analytics';
 
 const INSTALLATION_KEY = 'notifications.installation.v1';
 const PREFERENCES_KEY = 'notifications.preferences.v1';
@@ -102,9 +103,26 @@ async function register(preferences: NotificationPreferences): Promise<void> {
 function openArticle(
   response: Notifications.NotificationResponse | null,
 ): void {
+  if (!response) return;
   const slug = response?.notification.request.content.data?.articleSlug;
+  const rawType = response?.notification.request.content.data?.notificationType;
+  const notificationType =
+    rawType === 'breaking_news' ||
+    rawType === 'briefing' ||
+    rawType === 'category'
+      ? rawType
+      : 'unknown';
+  analytics.track('notification_open', {
+    notification_type: notificationType,
+    ...(typeof slug === 'string' && ARTICLE_SLUG.test(slug)
+      ? { article_id: slug }
+      : {}),
+  });
   if (typeof slug === 'string' && ARTICLE_SLUG.test(slug))
-    router.push({ pathname: '/article/[slug]', params: { slug } });
+    router.push({
+      pathname: '/article/[slug]',
+      params: { slug, entryPoint: 'notification' },
+    });
 }
 
 export function NotificationsProvider({

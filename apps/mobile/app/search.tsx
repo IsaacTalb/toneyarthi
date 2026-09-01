@@ -24,6 +24,7 @@ import {
   saveRecentSearches,
 } from '../src/search/recentSearches';
 import { useTheme } from '../src/theme';
+import { analytics } from '../src/analytics';
 
 const DEBOUNCE_MS = 400;
 
@@ -36,6 +37,7 @@ export default function SearchScreen() {
   const [term, setTerm] = useState(initial);
   const [recent, setRecent] = useState<string[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const trackedSearch = useRef('');
 
   useEffect(() => {
     void loadRecentSearches().then(setRecent);
@@ -61,12 +63,19 @@ export default function SearchScreen() {
     // A completed search belongs in history even when it returns no matches;
     // this keeps history aligned with the searches the user actually made.
     if (!valid || !search.data) return;
+    if (trackedSearch.current !== term) {
+      trackedSearch.current = term;
+      analytics.track('search_completed', {
+        query_length: Array.from(term).length,
+        result_count: results.length,
+      });
+    }
     setRecent((current) => {
       const next = addRecentSearch(current, term);
       void saveRecentSearches(next);
       return next;
     });
-  }, [search.data, valid, term]);
+  }, [results.length, search.data, valid, term]);
 
   const chooseRecent = useCallback((value: string) => {
     clearTimeout(timer.current);
@@ -219,7 +228,10 @@ export default function SearchScreen() {
                 'News'
               }
               onPress={() =>
-                router.push(`/article/${encodeURIComponent(item.id)}`)
+                router.push({
+                  pathname: '/article/[slug]',
+                  params: { slug: item.id, entryPoint: 'search' },
+                })
               }
             />
           )}

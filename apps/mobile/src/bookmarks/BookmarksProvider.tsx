@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { bookmarkRepository } from './native';
 import type { BookmarkInput, BookmarkSnapshot } from './types';
+import { analytics } from '../analytics';
 
 interface BookmarksContextValue {
   bookmarks: BookmarkSnapshot[];
@@ -32,10 +33,15 @@ export function BookmarksProvider({ children }: PropsWithChildren) {
   const save = useCallback(async (bookmark: BookmarkInput) => {
     await bookmarkRepository.save(bookmark);
     setBookmarks(await bookmarkRepository.list());
+    analytics.track('save_changed', {
+      article_id: bookmark.id,
+      action: 'saved',
+    });
   }, []);
   const remove = useCallback(async (id: string) => {
     await bookmarkRepository.remove(id);
     setBookmarks(await bookmarkRepository.list());
+    analytics.track('save_changed', { article_id: id, action: 'removed' });
   }, []);
   const value = useMemo<BookmarksContextValue>(
     () => ({
