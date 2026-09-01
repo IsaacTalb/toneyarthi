@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { Typography } from './Typography';
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { useTheme } from '../theme';
 
 function State({
@@ -20,6 +21,8 @@ function State({
     <View
       accessibilityRole={error ? 'alert' : undefined}
       style={{
+        flexGrow: 1,
+        justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: t.spacing.lg,
         paddingVertical: t.spacing.xxl,
@@ -77,4 +80,32 @@ export function EmptyState(props: {
   onAction?: () => void;
 }) {
   return <State title={props.title ?? 'မတွေ့ရှိသေးပါ'} {...props} />;
+}
+
+export function OfflineState(props: {
+  message?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <State
+      title="အင်တာနက် မချိတ်ဆက်ထားပါ"
+      message={props.message ?? 'ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်ကြိုးစားပါ။'}
+      {...props}
+    />
+  );
+}
+
+export function LoadingState({ label = 'စစ်ဆေးနေသည်…' }: { label?: string }) {
+  const t = useTheme();
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      style={{ flex: 1, justifyContent: 'center', gap: t.spacing.md }}
+    >
+      <LoadingSkeleton height={120} />
+      <LoadingSkeleton height={120} />
+    </View>
+  );
 }

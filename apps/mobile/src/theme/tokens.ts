@@ -46,15 +46,9 @@ export const typeScale = {
 
 export const elevation = {
   none: {} satisfies ViewStyle,
-  card: Platform.select<ViewStyle>({
-    android: { elevation: 2 },
-    default: {
-      shadowColor: '#18251D',
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 3 },
-    },
-  })!,
+  // Borders already separate cards from the canvas. Keeping this token flat
+  // avoids a second, inconsistent depth cue (and cheaper GPU work in lists).
+  card: {} satisfies ViewStyle,
 } as const;
 
 export interface AppTheme {

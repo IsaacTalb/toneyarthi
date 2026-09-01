@@ -20,8 +20,9 @@ export function LoadingSkeleton({
   const opacity = useRef(new Animated.Value(0.45)).current;
   useEffect(() => {
     let loop: Animated.CompositeAnimation | undefined;
+    let mounted = true;
     AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
-      if (!reduced) {
+      if (mounted && !reduced) {
         loop = Animated.loop(
           Animated.sequence([
             Animated.timing(opacity, {
@@ -39,10 +40,13 @@ export function LoadingSkeleton({
         loop.start();
       }
     });
-    return () => loop?.stop();
+    return () => {
+      mounted = false;
+      loop?.stop();
+    };
   }, [opacity, t.motion.deliberate]);
   return (
-    <View accessibilityLabel="Loading" accessibilityRole="progressbar">
+    <View accessible={false} importantForAccessibility="no-hide-descendants">
       <Animated.View
         style={[
           {
