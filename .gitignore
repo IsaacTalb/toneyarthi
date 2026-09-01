@@ -12,6 +12,15 @@ web-build/
 # Expo requires raster icons, but the generated PNGs are build artifacts.
 apps/mobile/assets/*.png
 
+# Signing and store credentials must remain in EAS/approved secret storage.
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
+**/google-services.json
+**/play-store-service-account*.json
+
 # Local configuration
 .env
 .env.*

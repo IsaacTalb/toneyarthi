@@ -29,6 +29,9 @@
       "credentialsSource": "remote",
       "environment": "production",
       "channel": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "EXPO_PUBLIC_APP_ENVIRONMENT": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://api.toneyarthi.com",
@@ -38,6 +41,10 @@
   },
   "submit": {
     "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      },
       "ios": {}
     }
   }
