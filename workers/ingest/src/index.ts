@@ -36,6 +36,34 @@ export interface IngestSummary {
   sources: SourceSummary[];
 }
 
+function safeError(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error))
+    .replace(
+      /(authorization|api[-_ ]?key|token|secret|password)\s*[:=]\s*\S+/gi,
+      '$1=[REDACTED]',
+    )
+    .replace(/https?:\/\/\S+/gi, '[URL_REDACTED]')
+    .replace(/[\r\n\t]+/g, ' ')
+    .slice(0, 500);
+}
+
+function logSummary(summary: IngestSummary | SourceSummary) {
+  if ('sources' in summary)
+    return { ...summary, sources: summary.sources.map(logSummary) };
+  return {
+    sourceId: summary.sourceId,
+    slug: summary.slug,
+    priority: summary.priority,
+    fetched: summary.fetched,
+    accepted: summary.accepted,
+    duplicates: summary.duplicates,
+    invalid: summary.invalid,
+    queued: summary.queued,
+    durationMs: summary.durationMs,
+    errorCount: summary.errors.length,
+  };
+}
+
 async function insertCandidate(
   env: Env,
   source: SourceRow,
@@ -180,9 +208,7 @@ async function processSource(
           summary.queued++;
         }
       } catch (error) {
-        summary.errors.push(
-          error instanceof Error ? error.message : String(error),
-        );
+        summary.errors.push(safeError(error));
       }
     }
     await env.DB.prepare(
@@ -191,9 +217,7 @@ async function processSource(
       .bind(source.id)
       .run();
   } catch (error) {
-    const message = (
-      error instanceof Error ? error.message : String(error)
-    ).slice(0, 1000);
+    const message = safeError(error);
     summary.errors.push(message);
     await env.DB.prepare(
       "UPDATE sources SET last_error=?2,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1",
@@ -202,7 +226,12 @@ async function processSource(
       .run();
   }
   summary.durationMs = Date.now() - started;
-  console.log(JSON.stringify({ event: 'ingest.source.completed', ...summary }));
+  console.log(
+    JSON.stringify({
+      event: 'ingest.source.completed',
+      ...logSummary(summary),
+    }),
+  );
   return summary;
 }
 
@@ -216,16 +245,24 @@ export async function runIngest(env: Env): Promise<IngestSummary> {
   for (const source of result.results)
     sources.push(await processSource(env, source));
   const summary = { startedAt, completedAt: new Date().toISOString(), sources };
-  console.log(JSON.stringify({ event: 'ingest.run.completed', ...summary }));
+  console.log(
+    JSON.stringify({ event: 'ingest.run.completed', ...logSummary(summary) }),
+  );
   return summary;
 }
 
 function authorized(request: Request, secret: string): boolean {
-  const authorization = request.headers.get('authorization');
-  return (
-    authorization === `Bearer ${secret}` ||
-    request.headers.get('x-ingest-trigger-secret') === secret
-  );
+  const supplied = request.headers.get('authorization') ?? '';
+  const expected = `Bearer ${secret}`;
+  let mismatch = supplied.length ^ expected.length;
+  for (
+    let index = 0;
+    index < Math.max(supplied.length, expected.length);
+    index++
+  )
+    mismatch |=
+      (supplied.charCodeAt(index) || 0) ^ (expected.charCodeAt(index) || 0);
+  return mismatch === 0;
 }
 
 export default {
@@ -235,9 +272,6 @@ export default {
       return Response.json({ status: 'ok', service });
     }
     if (url.pathname !== '/trigger' || request.method !== 'POST') {
-      return Response.json({ error: 'Not found', service }, { status: 404 });
-    }
-    if (env.ENVIRONMENT !== 'development') {
       return Response.json({ error: 'Not found', service }, { status: 404 });
     }
     if (

@@ -19,6 +19,12 @@ const decode = (value: string): string =>
     .replace(/&quot;/g, '"')
     .replace(/&apos;|&#39;/g, "'")
     .replace(/&amp;/g, '&')
+    .replace(
+      /<(?:script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/(?:script|style|iframe|object|embed)>/gi,
+      ' ',
+    )
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
 const field = (xml: string, names: string[]): string | undefined => {

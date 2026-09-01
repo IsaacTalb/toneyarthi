@@ -28,3 +28,9 @@ ALLOWED_ORIGINS = ""
 # Set as a Worker secret (`wrangler secret put ADMIN_API_TOKEN`), never here.
 # Automatic publishing remains disabled; admin publication always requires an
 # authenticated request with explicit approval.
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }

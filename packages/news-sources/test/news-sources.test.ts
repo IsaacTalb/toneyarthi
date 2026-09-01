@@ -7,6 +7,7 @@ import { BBC_WORLD, NASA_BREAKING_NEWS, NPR_NEWS } from '../src/adapters.ts';
 import { NewsSourceAdapterError } from '../src/errors.ts';
 import { getNewsSourceAdapter, newsSourceRegistry } from '../src/registry.ts';
 import { normalizeFetchOptions } from '../src/types.ts';
+import { fetchFeed } from '../src/transport.ts';
 
 const fixture = (name: string) =>
   readFile(new URL(`fixtures/${name}`, import.meta.url), 'utf8');
@@ -97,5 +98,50 @@ describe('configuration and registry', () => {
     assert.equal(newsSourceRegistry.size, 3);
     assert.equal(getNewsSourceAdapter('bbc-world').definition, BBC_WORLD);
     assert.throws(() => getNewsSourceAdapter('unknown'), RangeError);
+  });
+});
+
+describe('outbound transport security', () => {
+  it('rejects non-HTTPS and private-address feed targets before fetch', async () => {
+    const options = normalizeFetchOptions();
+    await assert.rejects(fetchFeed('http://example.com/feed', 'test', options));
+    await assert.rejects(fetchFeed('https://127.0.0.1/feed', 'test', options));
+  });
+
+  it('enforces XML content type and the streaming byte limit', async () => {
+    const original = globalThis.fetch;
+    try {
+      globalThis.fetch = async () =>
+        new Response('not xml', {
+          headers: { 'content-type': 'text/html' },
+        });
+      await assert.rejects(
+        fetchFeed(
+          'https://feeds.example/feed',
+          'test',
+          normalizeFetchOptions(),
+        ),
+      );
+      globalThis.fetch = async () =>
+        new Response('x'.repeat(2048), {
+          headers: { 'content-type': 'application/rss+xml' },
+        });
+      await assert.rejects(
+        fetchFeed(
+          'https://feeds.example/feed',
+          'test',
+          normalizeFetchOptions({ maxBytes: 1024 }),
+        ),
+      );
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('strips active and presentation HTML from untrusted feed fields', async () => {
+    const xml =
+      '<rss><channel><item><title>Hello</title><link>https://example.test/a</link><description>Safe <b>text</b><script>steal()</script></description></item></channel></rss>';
+    const [article] = await adapterFor(BBC_WORLD, xml).fetch();
+    assert.equal(article.summary, 'Safe text');
   });
 });
