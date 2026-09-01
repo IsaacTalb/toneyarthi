@@ -14,6 +14,238 @@ export type EditorialAction =
 interface AdminEnv {
   DB: D1Database;
   ADMIN_API_TOKEN?: string;
+  PIPELINE_QUEUE: Queue;
+  TTS_QUEUE: Queue;
+}
+
+const JOB_STATUSES = [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+  'cancelled',
+  'FAILED_AI',
+  'FAILED_TTS',
+] as const;
+const JOB_TYPES = [
+  'ingest',
+  'translate',
+  'summarize',
+  'cluster',
+  'extract',
+  'write',
+  'audio',
+] as const;
+const RETRYABLE = new Set(['failed', 'FAILED_AI', 'FAILED_TTS']);
+
+export function sanitizeError(value: string | null): string | null {
+  if (!value) return null;
+  return value
+    .replace(/https?:\/\/\S+/gi, '[url]')
+    .replace(
+      /\b(?:api[-_]?key|token|authorization|secret)\s*[:=]\s*(?:Bearer\s+)?\S+/gi,
+      '[credential redacted]',
+    )
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/[\r\n\t]+/g, ' ')
+    .slice(0, 500);
+}
+
+/** Authenticated operational metrics and a bounded, filterable job listing. */
+export async function handleAdminProcessing(
+  request: Request,
+  env: AdminEnv,
+  url: URL,
+) {
+  const retry = url.pathname.match(
+    /^\/v1\/admin\/processing\/jobs\/([^/]+)\/retry$/,
+  );
+  if (retry) return handleJobRetry(request, env, retry[1]);
+  if (url.pathname !== '/v1/admin/processing') return null;
+  authenticate(request, env);
+  if (request.method !== 'GET' && request.method !== 'HEAD') return null;
+  const status = url.searchParams.get('status');
+  const type = url.searchParams.get('type');
+  if (status && !(JOB_STATUSES as readonly string[]).includes(status))
+    throw new AdminError(400, 'INVALID_STATUS', 'Unknown processing status');
+  if (type && !(JOB_TYPES as readonly string[]).includes(type))
+    throw new AdminError(
+      400,
+      'INVALID_JOB_TYPE',
+      'Unknown processing job type',
+    );
+  const rawPage = url.searchParams.get('page') ?? '1';
+  if (!/^\d+$/.test(rawPage) || +rawPage < 1 || +rawPage > 10000)
+    throw new AdminError(
+      400,
+      'INVALID_PAGE',
+      'page must be between 1 and 10000',
+    );
+  const limit = 50,
+    offset = (+rawPage - 1) * limit;
+  const filters = `${status ? ' AND j.status=?1' : ''}${type ? ` AND j.job_type=?${status ? 2 : 1}` : ''}`;
+  const bindings = [status, type].filter(Boolean);
+  const [counts, failures, jobs] = await Promise.all([
+    env.DB.prepare(
+      `SELECT
+      SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) queued,
+      SUM(CASE WHEN status='processing' THEN 1 ELSE 0 END) processing,
+      SUM(CASE WHEN status IN ('failed','FAILED_AI','FAILED_TTS') THEN 1 ELSE 0 END) failed
+      FROM processing_jobs`,
+    ).first<Record<string, number>>(),
+    env.DB.prepare(
+      `SELECT
+      (SELECT COUNT(*) FROM sources WHERE last_error IS NOT NULL) sourceFailures,
+      SUM(CASE WHEN status='FAILED_AI' THEN 1 ELSE 0 END) geminiFailures,
+      SUM(CASE WHEN status='FAILED_TTS' THEN 1 ELSE 0 END) ttsFailures,
+      (SELECT COUNT(*) FROM story_clusters WHERE pipeline_state IN ('READY_FOR_REVIEW','NEEDS_REVIEW','FAILED_VERIFICATION','FAILED_TTS')) reviewRequired,
+      (SELECT COUNT(*) FROM story_clusters WHERE pipeline_state='PUBLISHED' AND date(published_at)=date('now')) publishedToday
+      FROM processing_jobs`,
+    ).first<Record<string, number>>(),
+    env.DB.prepare(
+      `SELECT j.id,j.article_id articleId,j.cluster_id clusterId,
+      COALESCE(a.title,c.title,'Unattached job') article,j.job_type type,j.status,
+      j.attempts,j.max_attempts maxAttempts,j.error_message error,
+      j.created_at createdAt,j.started_at startedAt,j.completed_at completedAt,j.updated_at updatedAt
+      FROM processing_jobs j LEFT JOIN articles a ON a.id=j.article_id
+      LEFT JOIN story_clusters c ON c.id=j.cluster_id WHERE 1=1${filters}
+      ORDER BY j.created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+    )
+      .bind(...bindings)
+      .all<Record<string, unknown>>(),
+  ]);
+  return {
+    metrics: {
+      queued: counts?.queued ?? 0,
+      processing: counts?.processing ?? 0,
+      failed: counts?.failed ?? 0,
+      reviewRequired: failures?.reviewRequired ?? 0,
+      publishedToday: failures?.publishedToday ?? 0,
+      sourceFailures: failures?.sourceFailures ?? 0,
+      geminiFailures: failures?.geminiFailures ?? 0,
+      ttsFailures: failures?.ttsFailures ?? 0,
+    },
+    items: jobs.results.map((job) => ({
+      ...job,
+      error: sanitizeError(job.error as string | null),
+      retryable: RETRYABLE.has(job.status as string),
+    })),
+    page: +rawPage,
+    hasMore: jobs.results.length === limit,
+  };
+}
+
+async function handleJobRetry(
+  request: Request,
+  env: AdminEnv,
+  encodedId: string,
+) {
+  if (request.method !== 'POST') return null;
+  const actor = authenticate(request, env);
+  let id: string;
+  try {
+    id = decodeURIComponent(encodedId);
+  } catch {
+    throw new AdminError(400, 'INVALID_JOB_ID', 'Invalid job id');
+  }
+  if (!ID.test(id))
+    throw new AdminError(400, 'INVALID_JOB_ID', 'Invalid job id');
+  const job = await env.DB.prepare(
+    `SELECT id,article_id articleId,cluster_id clusterId,job_type type,status,payload,priority,max_attempts maxAttempts FROM processing_jobs WHERE id=?1`,
+  )
+    .bind(id)
+    .first<{
+      id: string;
+      articleId: string | null;
+      clusterId: string | null;
+      type: string;
+      status: string;
+      payload: string;
+      priority: number;
+      maxAttempts: number;
+    }>();
+  if (!job)
+    throw new AdminError(404, 'JOB_NOT_FOUND', 'Processing job not found');
+  if (!RETRYABLE.has(job.status))
+    throw new AdminError(
+      409,
+      'JOB_NOT_RETRYABLE',
+      'Only failed terminal jobs can be retried',
+    );
+  const active = await env.DB.prepare(
+    `SELECT id FROM processing_jobs WHERE job_type=?1 AND status IN ('pending','processing') AND COALESCE(article_id,'')=COALESCE(?2,'') AND COALESCE(cluster_id,'')=COALESCE(?3,'') LIMIT 1`,
+  )
+    .bind(job.type, job.articleId, job.clusterId)
+    .first<{ id: string }>();
+  if (active)
+    throw new AdminError(
+      409,
+      'ACTIVE_JOB_EXISTS',
+      'An active job already exists for this article and type',
+    );
+  const newId = crypto.randomUUID(),
+    now = new Date().toISOString();
+  try {
+    const statements = [
+      env.DB.prepare(
+        `INSERT INTO processing_jobs (id,article_id,cluster_id,job_type,status,payload,deduplication_key,priority,max_attempts) VALUES (?1,?2,?3,?4,'pending',?5,?6,?7,?8)`,
+      ).bind(
+        newId,
+        job.articleId,
+        job.clusterId,
+        job.type,
+        job.payload,
+        `retry:${id}:${newId}`,
+        job.priority,
+        job.maxAttempts,
+      ),
+      env.DB.prepare(
+        `INSERT INTO processing_job_audit (job_id,retried_from_job_id,actor,action,details,created_at) VALUES (?1,?2,?3,'retry',?4,?5)`,
+      ).bind(
+        newId,
+        id,
+        actor,
+        JSON.stringify({ previousStatus: job.status }),
+        now,
+      ),
+    ];
+    if (job.type === 'audio' && job.clusterId)
+      statements.push(
+        env.DB.prepare(
+          `UPDATE story_clusters SET pipeline_state='TTS_PENDING',updated_at=?2 WHERE id=?1 AND pipeline_state='FAILED_TTS'`,
+        ).bind(job.clusterId, now),
+      );
+    await env.DB.batch(statements);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /duplicate active processing job/i.test(error.message)
+    )
+      throw new AdminError(
+        409,
+        'ACTIVE_JOB_EXISTS',
+        'An active job already exists for this article and type',
+      );
+    throw error;
+  }
+  const message = {
+    version: 1,
+    jobId: newId,
+    ...(job.clusterId
+      ? { clusterId: job.clusterId }
+      : { articleId: job.articleId }),
+    type: job.type,
+  };
+  await (job.type === 'audio' ? env.TTS_QUEUE : env.PIPELINE_QUEUE).send(
+    message,
+  );
+  return {
+    jobId: newId,
+    retriedFromJobId: id,
+    status: 'pending',
+    actor,
+    enqueuedAt: now,
+  };
 }
 
 interface SourceRow {

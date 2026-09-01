@@ -1,7 +1,28 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { AdminError, handleAdminSources, transitionFor } from '../src/admin.ts';
+import {
+  AdminError,
+  handleAdminSources,
+  sanitizeError,
+  transitionFor,
+} from '../src/admin.ts';
+
+describe('processing diagnostics', () => {
+  it('redacts credentials, URLs, and multiline detail', () => {
+    const value = sanitizeError(
+      'authorization: Bearer abc123\nrequest https://secret.test/path',
+    );
+    assert.equal(value?.includes('abc123'), false);
+    assert.equal(value?.includes('secret.test'), false);
+    assert.equal(value?.includes('\n'), false);
+  });
+
+  it('bounds errors shown to administrators', () => {
+    assert.equal(sanitizeError('x'.repeat(1000))?.length, 500);
+    assert.equal(sanitizeError(null), null);
+  });
+});
 
 describe('editorial state transitions', () => {
   it('only permits explicit publication from READY', () => {
