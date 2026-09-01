@@ -26,7 +26,8 @@ function StoryCard({ story, featured = false, ...props }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${story.category}: ${story.title}`}
+      accessibilityLabel={story.title}
+      accessibilityHint={`${story.category} သတင်းကို ဖတ်မည်${story.hasAudio ? '၊ အသံပါရှိသည်' : ''}`}
       {...props}
       style={({ pressed }) => [
         {
@@ -47,12 +48,14 @@ function StoryCard({ story, featured = false, ...props }: Props) {
         <Image
           source={{ uri: imageUrl, cache: 'force-cache' }}
           accessibilityIgnoresInvertColors
+          accessible={false}
           resizeMode="cover"
           resizeMethod="resize"
           style={{ width: '100%', height: featured ? 206 : 152 }}
         />
       ) : (
         <View
+          accessible={false}
           style={{
             height: featured ? 150 : 104,
             backgroundColor: t.colors.brandSoft,
@@ -92,7 +95,7 @@ function StoryCard({ story, featured = false, ...props }: Props) {
           </Typography>
           {story.hasAudio ? (
             <Ionicons
-              accessibilityLabel="Audio available"
+              accessible={false}
               name="volume-low-outline"
               size={14}
               color={t.colors.inkMuted}
