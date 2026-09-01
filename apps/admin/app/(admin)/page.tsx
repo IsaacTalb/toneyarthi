@@ -6,13 +6,8 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { PageHeading } from '../../components/page-heading';
+import { adminApi } from '../../lib/admin-api';
 
-const stats = [
-  { label: 'Candidates today', value: '24', detail: '+8 since yesterday' },
-  { label: 'Awaiting review', value: '7', detail: '3 high priority' },
-  { label: 'Published today', value: '12', detail: 'Last at 14:32' },
-  { label: 'Active sources', value: '18', detail: 'All reporting' },
-];
 const queue = [
   {
     title: 'Election commission releases updated guidance',
@@ -34,7 +29,50 @@ const queue = [
   },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { metrics } = await adminApi<{
+    metrics: Record<
+      | 'queued'
+      | 'processing'
+      | 'failed'
+      | 'reviewRequired'
+      | 'publishedToday'
+      | 'sourceFailures'
+      | 'geminiFailures'
+      | 'ttsFailures',
+      number
+    >;
+  }>('/v1/admin/processing');
+  const stats = [
+    { label: 'Queued', value: metrics.queued, detail: 'Waiting for a worker' },
+    { label: 'Processing', value: metrics.processing, detail: 'Active jobs' },
+    { label: 'Failed', value: metrics.failed, detail: 'Terminal jobs' },
+    {
+      label: 'Review required',
+      value: metrics.reviewRequired,
+      detail: 'Editorial attention',
+    },
+    {
+      label: 'Published today',
+      value: metrics.publishedToday,
+      detail: 'UTC calendar day',
+    },
+    {
+      label: 'Source failures',
+      value: metrics.sourceFailures,
+      detail: 'Sources reporting errors',
+    },
+    {
+      label: 'Gemini failures',
+      value: metrics.geminiFailures,
+      detail: 'AI terminal failures',
+    },
+    {
+      label: 'TTS failures',
+      value: metrics.ttsFailures,
+      detail: 'Audio terminal failures',
+    },
+  ];
   return (
     <>
       <PageHeading
@@ -48,7 +86,7 @@ export default function DashboardPage() {
         }
       />
       <div className="space-y-8 p-10">
-        <section className="grid grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           {stats.map((stat) => (
             <article
               key={stat.label}
@@ -56,7 +94,7 @@ export default function DashboardPage() {
             >
               <p className="text-sm text-slate-500">{stat.label}</p>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
-                {stat.value}
+                {stat.value.toLocaleString()}
               </p>
               <p className="mt-2 text-xs text-slate-500">{stat.detail}</p>
             </article>
@@ -125,7 +163,7 @@ export default function DashboardPage() {
               <Health
                 icon={<TriangleAlert size={16} />}
                 label="Failed jobs"
-                value="3"
+                value={String(metrics.failed)}
                 tone="amber"
               />
             </div>

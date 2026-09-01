@@ -2,6 +2,7 @@ import {
   AdminError,
   handleAdminAction,
   handleAdminReview,
+  handleAdminProcessing,
   handleAdminSources,
 } from './admin.ts';
 import { handlePushTokenRequest, PushTokenError } from './push-tokens.ts';
@@ -17,6 +18,8 @@ interface Env {
   DB: D1Database;
   ALLOWED_ORIGINS?: string;
   ADMIN_API_TOKEN?: string;
+  PIPELINE_QUEUE: Queue;
+  TTS_QUEUE: Queue;
 }
 
 type Json = Record<string, unknown> | unknown[];
@@ -357,6 +360,11 @@ export async function handleRequest(
       if (request.method === 'DELETE')
         throw new HttpError(404, 'NOT_FOUND', 'Route not found');
       const data = await handleAdminAction(request, env, url);
+      if (data === null) {
+        const processing = await handleAdminProcessing(request, env, url);
+        if (processing !== null)
+          return jsonResponse(request, env, processing, 200, 'no-store');
+      }
       if (data === null)
         throw new HttpError(404, 'NOT_FOUND', 'Route not found');
       return jsonResponse(request, env, data, 200, 'no-store');
@@ -370,6 +378,9 @@ export async function handleRequest(
     const adminReview = await handleAdminReview(request, env, url);
     if (adminReview !== null)
       return jsonResponse(request, env, adminReview, 200, 'no-store');
+    const adminProcessing = await handleAdminProcessing(request, env, url);
+    if (adminProcessing !== null)
+      return jsonResponse(request, env, adminProcessing, 200, 'no-store');
     const adminSources = await handleAdminSources(request, env, url);
     if (adminSources !== null)
       return jsonResponse(request, env, adminSources, 200, 'no-store');

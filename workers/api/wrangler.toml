@@ -2,6 +2,14 @@ name = "toneyarthi-api"
 main = "src/index.ts"
 compatibility_date = "2025-08-30"
 
+[[queues.producers]]
+binding = "PIPELINE_QUEUE"
+queue = "news-processing"
+
+[[queues.producers]]
+binding = "TTS_QUEUE"
+queue = "tts-processing"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "tone-yar-thi"
