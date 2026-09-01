@@ -10,6 +10,7 @@ import {
   EXTRACTION_SCHEMA,
   isExtractionOutput,
   isBurmeseWritingOutput,
+  assessEditorialRisk,
   type BurmeseWritingOutput,
   type ExtractionArticle,
   type ExtractionOutput,
@@ -174,6 +175,7 @@ async function processMessage(
         isExtractionOutput(value, articleIds),
     });
     const writingJobId = crypto.randomUUID();
+    const risk = assessEditorialRisk(output);
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO story_extractions (job_id, cluster_id, prompt_id, prompt_version, model, output)
@@ -205,9 +207,17 @@ async function processMessage(
       ),
       env.DB.prepare(
         `UPDATE story_clusters SET pipeline_state = 'WRITING',
+           editorial_risk = ?2, editorial_confidence = ?3,
+           risk_topics = ?4, risk_reasons = ?5,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ?1 AND pipeline_state = 'EXTRACTING'`,
-      ).bind(payload.clusterId),
+      ).bind(
+        payload.clusterId,
+        risk.level,
+        risk.confidence,
+        JSON.stringify(risk.topics),
+        JSON.stringify(risk.reasons),
+      ),
       // The structured extraction is sufficient for synthesis and review.
       // Remove transient source copies promptly while retaining attribution metadata.
       env.DB.prepare(
@@ -246,6 +256,7 @@ async function writeDraft(env: Env, payload: StoryJobPayload): Promise<void> {
   const extraction: unknown = JSON.parse(stored.output);
   if (!isExtractionOutput(extraction))
     throw new Error('Stored story extraction failed schema validation');
+  const risk = assessEditorialRisk(extraction);
 
   const client = createGeminiClient({
     GEMINI_API_KEY: env.GEMINI_API_KEY,
@@ -290,9 +301,13 @@ async function writeDraft(env: Env, payload: StoryJobPayload): Promise<void> {
       generatedAt,
     ),
     env.DB.prepare(
-      `UPDATE story_clusters SET pipeline_state = 'READY_FOR_REVIEW', updated_at = ?2
+      `UPDATE story_clusters SET pipeline_state = ?3, updated_at = ?2
        WHERE id = ?1 AND pipeline_state = 'WRITING'`,
-    ).bind(payload.clusterId, generatedAt),
+    ).bind(
+      payload.clusterId,
+      generatedAt,
+      risk.requiresHumanReview ? 'NEEDS_REVIEW' : 'READY_FOR_REVIEW',
+    ),
   ]);
 }
 

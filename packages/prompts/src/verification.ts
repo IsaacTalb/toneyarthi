@@ -1,4 +1,4 @@
-import type { ExtractionOutput } from './index.ts';
+import type { EditorialRiskAssessment, ExtractionOutput } from './index.ts';
 import type { BurmeseDraftFields } from './humanization.ts';
 
 export const VERIFICATION_PROMPT_ID = 'burmese-story-verification';
@@ -19,6 +19,8 @@ export const VERIFICATION_ERROR_TYPES = [
   'CHANGED_UNCERTAINTY',
   'MISTRANSLATION',
   'EXAGGERATION',
+  'SOURCE_DISAGREEMENT_HIDDEN',
+  'CATEGORY_CHANGED',
 ] as const;
 export type VerificationErrorType = (typeof VERIFICATION_ERROR_TYPES)[number];
 export type VerificationSeverity = 'minor' | 'serious';
@@ -103,7 +105,7 @@ export function buildVerificationPrompt(
   input: VerificationInput,
 ): string {
   return `Prompt ${VERIFICATION_PROMPT_ID}@${VERIFICATION_PROMPT_VERSION}
-Act as a strict factual verifier for story cluster ${clusterId}. Compare the Burmese content against BOTH the extracted fact ledger and its source evidence. Report every discrepancy involving names, numbers, currencies, dates, locations, organizations, unsupported claims, lost or changed attribution, strengthened or weakened uncertainty, mistranslation, or exaggeration.
+Act as a strict factual verifier for story cluster ${clusterId}. Compare the Burmese content against BOTH the extracted fact ledger and its source evidence. Report every discrepancy involving names, numbers, currencies, dates, locations, organizations, unsupported claims, lost or changed attribution, strengthened or weakened uncertainty, mistranslation, or exaggeration. Check that facts, attributed claims, allegations, predictions, opinions, and uncertainty remain distinct. Every source disagreement and every competing position must be visible; silently choosing one account is a serious SOURCE_DISAGREEMENT_HIDDEN error.
 
 Use severity "minor" only for a localized error that can be corrected without editorial judgment and without changing the story's substance. Use "serious" for unsupported substantive claims, conflicting identity/quantity/date, attribution or uncertainty changes, material mistranslation, exaggeration, or anything requiring judgment. Do not rewrite the article. A result passes if and only if errors is empty. Return JSON only with exactly passed and errors; each error must contain exactly type, severity, and a precise description identifying the content and evidence in conflict.
 
@@ -159,7 +161,9 @@ export type VerificationRoute = 'TTS_PENDING' | 'CORRECT_ONCE' | 'NEEDS_REVIEW';
 export function routeVerification(
   result: VerificationResult,
   correctionUsed: boolean,
+  risk?: EditorialRiskAssessment,
 ): VerificationRoute {
+  if (risk?.requiresHumanReview) return 'NEEDS_REVIEW';
   if (result.passed) return 'TTS_PENDING';
   if (
     !correctionUsed &&
